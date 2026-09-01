@@ -351,6 +351,24 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--ag);cursor:pointe
 .pay-c footer{padding:13px 18px;display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:900px){.pay-r button{opacity:1}}
 
+/* ───────── CONFIGURAÇÃO INICIAL ───────── */
+.ob{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:20px;overflow-y:auto;
+  background:radial-gradient(1200px 600px at 50% -10%,var(--ag-50),var(--bg) 62%)}
+.ob-card{width:100%;max-width:520px;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r-lg);box-shadow:var(--sh-3);padding:30px 32px 24px;animation:pop .22s cubic-bezier(.2,.8,.3,1)}
+.ob-card img{height:28px;width:auto;display:block;margin-bottom:22px}
+[data-theme="dark"] .ob-card img{background:#fff;border-radius:6px;padding:4px 6px}
+.ob-card h2{font-size:20px;font-weight:600;letter-spacing:-.02em;line-height:1.3}
+.ob-card .lead{color:var(--ink-3);font-size:13px;margin-top:6px;margin-bottom:22px;max-width:44ch}
+.ob-fields{display:flex;flex-direction:column;gap:14px}
+.ob-nav{display:flex;align-items:center;gap:10px;margin-top:26px;padding-top:18px;border-top:1px solid var(--line-2)}
+.ob-dots{display:flex;gap:6px;flex:1}
+.ob-dots i{width:22px;height:4px;border-radius:99px;background:var(--line);display:block}
+.ob-dots i.on{background:var(--ag)}
+.ob-skip{background:none;border:0;color:var(--ink-3);font-size:12px;cursor:pointer;padding:4px}
+.ob-skip:hover{color:var(--ag);text-decoration:underline}
+@media(max-width:560px){.ob-card{padding:24px 20px}.ob{place-items:start center}}
+
 /* ───────── TEMA ESCURO ───────── */
 [data-theme="dark"]{
   --ag:#5b93f2; --ag-700:#2c4f8f; --ag-600:#77a8f7; --ag-300:#3d5a8f; --ag-50:#1a2436;
@@ -535,14 +553,15 @@ const Store={
 };
 let DB={config:null,analistas:[],clientes:[],unidades:[],empresas:[],produtos:[],orcamentos:[],seq:0};
 const savers={};
-function save(part){
+function save(part,agora){
   clearTimeout(savers[part]);
-  savers[part]=setTimeout(()=>{
+  const grava=()=>{
     if(part==='meta')Store.set(KEYS.meta,{config:DB.config,analistas:DB.analistas,clientes:DB.clientes,
       unidades:DB.unidades,empresas:DB.empresas,seq:DB.seq});
     if(part==='orc')Store.set(KEYS.orc,DB.orcamentos);
     if(part==='prod')Store.set(KEYS.prod,DB.produtos);
-  },140);
+  };
+  if(agora)grava();else savers[part]=setTimeout(grava,140);
 }
 const SEEDVER=3;
 const DEFCFG={
@@ -554,12 +573,13 @@ const DEFCFG={
   txtCola:'Valor para vidro instalado.',
   txtSimples:'Valor para vidro instalado.',
   chassiPadrao:16,colaPadrao:53,seedVer:SEEDVER,tema:'claro',
+  onboarded:false,clientePadrao:'',unidadePadrao:'',
   mailRemetente:'comercial@autoglass.com.br',mailNome:'Autoglass · Comercial Frotas',
   mailAssunto:'Orçamento Autoglass — {numero}',
   mailCorpo:'Olá,\n\nSegue em anexo o orçamento {numero} referente a {identificacao}.\n\nValor total: {total}\nValidade: {validade} dias.\n\nQualquer dúvida, estou à disposição.\n\nAtenciosamente,\n{consultor}',
   mailApi:'',placaApi:'',placaToken:'',
   urlPublica:'https://orcamentos.autoglass.com.br/q/',
-  qrcode:true,usuario:'Gabriel Aguiar',perfil:'Administrador'
+  qrcode:true,usuario:'',perfil:'Administrador'
 };
 async function boot(){
   const meta=await Store.get(KEYS.meta);
@@ -713,6 +733,130 @@ function applyTheme(){
   if(b){b.innerHTML=ico(dark?'sun':'moon');b.title=dark?'Mudar para tema claro':'Mudar para tema escuro'}
 }
 mq&&mq.addEventListener&&mq.addEventListener('change',()=>{if(DB.config?.tema==='auto')applyTheme()});
+/* ═══════════ CONFIGURAÇÃO INICIAL (primeiro acesso) ═══════════ */
+function onboarding(){
+  return new Promise(done=>{
+    const a0=DB.analistas.find(a=>a.nome===DB.config.usuario);
+    const st={nome:DB.config.usuario||'',perfil:DB.config.perfil||'Administrador',
+      email:a0?.email||'',tel:a0?.telefone||'',wa:a0?.whatsapp||'',
+      cliId:DB.config.clientePadrao||'',cliNovo:'',cliMail:'',
+      uniId:DB.config.unidadePadrao||'',tema:DB.config.tema||'claro'};
+    let step=0;
+    const ov=document.createElement('div');ov.className='ob';document.body.appendChild(ov);
+    const TOTAL=3;
+
+    const passo1=()=>`
+      <h2>Bem-vindo ao sistema de orçamentos</h2>
+      <p class="lead">Três perguntas rápidas e o sistema já abre pronto para uso. Você pode mudar tudo depois em Configurações.</p>
+      <div class="ob-fields">
+        <label class="f"><span>Quem vai usar o sistema <i>*</i></span>
+          <input class="inp" id="oNome" value="${esc(st.nome)}" placeholder="Nome completo" autocomplete="name"></label>
+        <label class="f"><span>Perfil de acesso</span><select class="inp" id="oPerfil">
+          ${['Administrador','Gestor','Analista'].map(p=>`<option ${st.perfil===p?'selected':''}>${p}</option>`).join('')}
+        </select><div class="hint">Administrador acessa cadastros, configurações e todos os orçamentos.</div></label>
+        <label class="f"><span>Tema da interface</span><select class="inp" id="oTema">
+          ${[['claro','Claro'],['escuro','Escuro'],['auto','Acompanhar o sistema']].map(([v,t])=>
+            `<option value="${v}" ${st.tema===v?'selected':''}>${t}</option>`).join('')}</select></label>
+      </div>`;
+
+    const passo2=()=>`
+      <h2>Seus contatos comerciais</h2>
+      <p class="lead">Estes dados vão impressos no rodapé de todo orçamento, como consultor responsável.</p>
+      <div class="ob-fields">
+        <label class="f"><span>E-mail comercial</span>
+          <input class="inp" id="oMail" value="${esc(st.email)}" placeholder="nome@autoglass.com.br" autocomplete="email"></label>
+        <div class="grid g2" style="gap:12px">
+          <label class="f"><span>Telefone</span><input class="inp" id="oTel" value="${esc(st.tel)}" placeholder="(00) 0000-0000"></label>
+          <label class="f"><span>WhatsApp</span><input class="inp" id="oWa" value="${esc(st.wa)}" placeholder="(00) 00000-0000"></label>
+        </div>
+      </div>`;
+
+    const passo3=()=>`
+      <h2>Sua carteira</h2>
+      <p class="lead">Escolha o cliente e a unidade que você mais atende. O sistema já traz os dois preenchidos em cada novo orçamento.</p>
+      <div class="ob-fields">
+        <label class="f"><span>Cliente principal</span><select class="inp" id="oCli">
+          <option value="">— definir depois —</option>
+          ${DB.clientes.map(c=>`<option value="${c.id}" ${st.cliId===c.id?'selected':''}>${esc(c.nome_fantasia||c.razao_social)}</option>`).join('')}
+          <option value="__novo" ${st.cliId==='__novo'?'selected':''}>Outro — cadastrar agora</option>
+        </select></label>
+        <label class="f" id="oNovoBox" style="display:${st.cliId==='__novo'?'block':'none'}">
+          <span>Nome do cliente <i>*</i></span>
+          <input class="inp" id="oCliNovo" value="${esc(st.cliNovo)}" placeholder="Razão social ou nome fantasia"></label>
+        <label class="f"><span>E-mail do cliente</span>
+          <input class="inp" id="oCliMail" value="${esc(st.cliMail)}" placeholder="contato@empresa.com.br">
+          <div class="hint">Usado como destinatário sugerido no envio do orçamento.</div></label>
+        <label class="f"><span>Unidade mais utilizada</span><select class="inp" id="oUni">
+          <option value="">— definir depois —</option>
+          ${DB.unidades.map(u=>`<option value="${u.id}" ${st.uniId===u.id?'selected':''}>${esc(u.codigo)} · ${esc(u.cidade)} — ${esc(u.estado)}</option>`).join('')}
+        </select></label>
+      </div>`;
+
+    function render(){
+      ov.innerHTML=`<div class="ob-card" role="dialog" aria-modal="true">
+        <img src="${DB.config.logo||LOGO_AG}" alt="Autoglass">
+        ${[passo1,passo2,passo3][step]()}
+        <div class="ob-nav">
+          <div class="ob-dots">${Array.from({length:TOTAL},(_,i)=>`<i class="${i<=step?'on':''}"></i>`).join('')}</div>
+          ${step?`<button class="btn" id="oBack">Voltar</button>`:`<button class="ob-skip" id="oSkip">Configurar depois</button>`}
+          <button class="btn pri" id="oNext">${step===TOTAL-1?'Concluir':'Continuar'}${step===TOTAL-1?'':''}</button>
+        </div></div>`;
+      const g=id=>ov.querySelector('#'+id);
+      if(step===0){
+        g('oNome').focus();
+        g('oTema').onchange=e=>{st.tema=e.target.value;DB.config.tema=st.tema;applyTheme();render()};
+      }
+      if(step===1){mask(g('oTel'),mkTel);mask(g('oWa'),mkTel)}
+      if(step===2){
+        g('oCli').onchange=e=>{st.cliId=e.target.value;
+          g('oNovoBox').style.display=st.cliId==='__novo'?'block':'none';
+          const c=cliente(st.cliId);if(c&&!g('oCliMail').value)g('oCliMail').value=c.email||''};
+      }
+      const salvar=()=>{
+        if(step===0){st.nome=g('oNome').value.trim();st.perfil=g('oPerfil').value;st.tema=g('oTema').value;
+          if(!st.nome){toast('Informe quem vai usar o sistema','err');g('oNome').classList.add('err');return false}}
+        if(step===1){st.email=g('oMail').value.trim();st.tel=g('oTel').value.trim();st.wa=g('oWa').value.trim();
+          if(st.email&&!/.+@.+\..+/.test(st.email)){toast('E-mail inválido','err');g('oMail').classList.add('err');return false}}
+        if(step===2){st.cliId=g('oCli').value;st.cliNovo=g('oCliNovo')?.value.trim()||'';st.cliMail=g('oCliMail').value.trim();
+          st.uniId=g('oUni').value;
+          if(st.cliId==='__novo'&&!st.cliNovo){toast('Informe o nome do cliente','err');return false}}
+        return true;
+      };
+      ov.querySelector('#oNext').onclick=()=>{
+        if(!salvar())return;
+        if(step<TOTAL-1){step++;render()}else{aplicar();ov.remove();done(true)}
+      };
+      ov.querySelector('#oBack')&&(ov.querySelector('#oBack').onclick=()=>{salvar();step--;render()});
+      ov.querySelector('#oSkip')&&(ov.querySelector('#oSkip').onclick=()=>{
+        DB.config.onboarded=true;save('meta',true);ov.remove();done(false)});
+      ov.onkeydown=e=>{if(e.key==='Enter'&&e.target.tagName==='INPUT'){e.preventDefault();ov.querySelector('#oNext').click()}};
+    }
+    function aplicar(){
+      /* consultor: reaproveita registro de mesmo nome ou cria um novo, e passa a ser o padrão */
+      let an=DB.analistas.find(a=>norm(a.nome)===norm(st.nome));
+      if(!an){an={id:uid(),nome:st.nome,telefone:'',whatsapp:'',email:'',ativo:true};DB.analistas.unshift(an)}
+      Object.assign(an,{telefone:st.tel||an.telefone,whatsapp:st.wa||an.whatsapp,email:st.email||an.email});
+      /* cliente principal */
+      let cli=null;
+      if(st.cliId==='__novo'){
+        cli={id:uid(),razao_social:st.cliNovo,nome_fantasia:st.cliNovo,cnpj:'',telefone:'',email:st.cliMail,
+          endereco:'',cidade:'',estado:'',cep:'',logo:'',
+          chassi_ativo:true,chassi_valor:DB.config.chassiPadrao,cola_ativo:true,cola_valor:DB.config.colaPadrao,
+          analista_id:an.id,obs_padrao:'',ativo:true};
+        DB.clientes.unshift(cli);
+      } else if(st.cliId){
+        cli=cliente(st.cliId);
+        if(cli){if(st.cliMail)cli.email=st.cliMail;cli.analista_id=an.id}
+      }
+      Object.assign(DB.config,{usuario:st.nome,perfil:st.perfil,tema:st.tema,
+        mailRemetente:st.email||DB.config.mailRemetente,
+        clientePadrao:cli?cli.id:'',unidadePadrao:st.uniId||'',onboarded:true});
+      save('meta',true);applyTheme();shell();
+      toast('Tudo pronto, '+st.nome.split(' ')[0]+'!');
+    }
+    render();
+  });
+}
 function statusPill(s){return `<span class="pill s-${s.toLowerCase()}"><i></i>${s}</span>`}
 const STATUS=['Rascunho','Gerado','Enviado','Aprovado','Recusado','Cancelado'];
 
@@ -1176,6 +1320,18 @@ const OBS_SUG=['Vidro necessita de calibração da câmera (ADAS) após a instal
   'Não recomendado lavar o veículo nas primeiras 24 horas após a instalação.'];
 
 function novoOrcamento(){
+  /* pré-preenche cliente e unidade definidos na configuração inicial */
+  const cp=cliente(DB.config.clientePadrao),up=unidade(DB.config.unidadePadrao);
+  const o=novoOrcamentoBase();
+  if(cp){o.cliente_id=cp.id;o.analista_id=cp.analista_id||'';
+    o.chassi_valor=cp.chassi_ativo?cp.chassi_valor:DB.config.chassiPadrao;
+    o.cola_valor=cp.cola_ativo?cp.cola_valor:DB.config.colaPadrao;
+    if(cp.obs_padrao)o.obs=[cp.obs_padrao];}
+  if(up)o.unidade_id=up.id;
+  if(!o.analista_id){const an=DB.analistas.find(a=>norm(a.nome)===norm(DB.config.usuario));if(an)o.analista_id=an.id}
+  return o;
+}
+function novoOrcamentoBase(){
   return {id:uid(),numero:proxNumero(),versao:1,pai_id:null,cliente_id:'',analista_id:'',unidade_id:'',
     ident_tipo:'Placa',ident_valor:'',veiculo:'',tipo_servico:'Serviço na unidade',
     endereco:{cep:'',logradouro:'',numero:'',compl:'',bairro:'',cidade:'',uf:''},
@@ -2350,6 +2506,15 @@ function vCfg(){
               ${[['claro','Claro'],['escuro','Escuro'],['auto','Acompanhar o sistema']].map(([v,t])=>
                 `<option value="${v}" ${(c.tema||'claro')===v?'selected':''}>${t}</option>`).join('')}
               </select><div class="hint">Também dá para alternar pelo botão no topo da tela.</div></label>
+            <label class="f"><span>Cliente pré-selecionado em novos orçamentos</span><select class="inp" id="cCliP">
+              <option value="">— nenhum —</option>
+              ${DB.clientes.map(x=>`<option value="${x.id}" ${c.clientePadrao===x.id?'selected':''}>${esc(x.nome_fantasia||x.razao_social)}</option>`).join('')}
+              </select></label>
+            <label class="f"><span>Unidade pré-selecionada</span><select class="inp" id="cUniP">
+              <option value="">— nenhuma —</option>
+              ${DB.unidades.map(x=>`<option value="${x.id}" ${c.unidadePadrao===x.id?'selected':''}>${esc(x.codigo)} · ${esc(x.cidade)}</option>`).join('')}
+              </select></label>
+            <button class="btn" id="cRefazer" style="align-self:flex-start">${ico('refresh')}Refazer configuração inicial</button>
           </div></div>
       </div></div>
     <div class="card"><div class="card-h"><div><h3>Numeração e validade</h3><p>Controle da sequência dos orçamentos</p></div></div>
@@ -2517,8 +2682,10 @@ function vCfg(){
   const g=id=>$('#'+id)?.value.trim();
   $('#cUp')&&($('#cUp').onclick=()=>pickImage(u=>{c.logo=u;save('meta');shell();vCfg();toast('Logo atualizada')},600));
   $('#cQr')&&($('#cQr').onchange=e=>$('#lQr').classList.toggle('on',e.target.checked));
+  $('#cRefazer')&&($('#cRefazer').onclick=async()=>{await onboarding();vCfg()});
   $('#cSave')&&($('#cSave').onclick=()=>{
-    if(cfgTab==='geral')Object.assign(c,{empresa:g('cEmp'),usuario:g('cUsr'),tema:$('#cTema').value,prefixo:(g('cPref')||'ORC').toUpperCase(),
+    if(cfgTab==='geral')Object.assign(c,{empresa:g('cEmp'),usuario:g('cUsr'),tema:$('#cTema').value,
+      clientePadrao:$('#cCliP').value,unidadePadrao:$('#cUniP').value,prefixo:(g('cPref')||'ORC').toUpperCase(),
       proxNumero:Math.max(1,parseInt(g('cProx'))||1),validade:Math.max(1,parseInt(g('cVal'))||5),
       urlPublica:g('cUrl'),qrcode:$('#cQr').checked});
     if(cfgTab==='pdf')Object.assign(c,{chassiPadrao:num(g('cCh')),colaPadrao:num(g('cCo')),
@@ -2554,9 +2721,9 @@ function anForm(a){
 /* ═══════════════════ INIT ═══════════════════ */
 function shell(){
   $('#sbLogo').src=DB.config.logo||LOGO_AG;
-  $('#uname').textContent=DB.config.usuario;
+  $('#uname').textContent=DB.config.usuario||'Definir usuário';
   $('#urole').textContent=DB.config.perfil;
-  $('#uav').textContent=initials(DB.config.usuario);
+  $('#uav').textContent=DB.config.usuario?initials(DB.config.usuario):'AG';
   $('#homeBtn').innerHTML=ico('home');
   applyTheme();
 }
@@ -2579,5 +2746,6 @@ addEventListener('click',e=>{if(document.body.classList.contains('drawer-open')&
   shell();
   if(!location.hash)location.hash='#/hub';
   router();
+  if(!DB.config.onboarded)await onboarding();
 })();
 </script>
