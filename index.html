@@ -447,6 +447,7 @@ const SEED_PRODUTOS_GZ="H4sIALIBl2oC/7S9yZLzyJUmuv+fgtYrqcpE+jwsESQjfioZwSiSEfmn
       <div><h1 id="ttl">Dashboard</h1><div class="sub" id="sub"></div></div>
       <div class="spacer"></div>
       <div id="topActions" class="row" style="gap:8px"></div>
+      <button class="icobtn" id="syncDot" title="Sincronização" aria-label="Estado da sincronização" style="display:none"></button>
       <button class="icobtn" id="themeBtn" title="Mudar tema" aria-label="Mudar tema"></button>
     </header>
     <div class="wrap" id="view"></div>
@@ -506,6 +507,7 @@ const P={
  moon:'M21 12.8A9 9 0 1111.2 3a7 7 0 009.8 9.8',
  bank:'M3 21h18M3 10h18M5 6l7-3 7 3v4H5zM6 10v11M10 10v11M14 10v11M18 10v11',
  grid:'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+ cloudOk:'M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10M9 15l2 2 4-4',
  pct:'M19 5L5 19M6.5 9a2.5 2.5 0 100-5 2.5 2.5 0 000 5M17.5 20a2.5 2.5 0 100-5 2.5 2.5 0 000 5'
 };
 function ico(n,c=''){return `<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">${(P[n]||'').split(' M').map((d,i)=>`<path d="${i?'M'+d:d}"/>`).join('')}</svg>`}
@@ -539,16 +541,73 @@ const debounce=(f,ms=220)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()
    Fallback em memória + backup manual JSON caso indisponível.  */
 const KEYS={meta:'ag:meta',orc:'ag:orcamentos',prod:'ag:produtos'};
 const mem={};
+
+/* ── IndexedDB: banco local do navegador, sem limite prático de tamanho ── */
+let _idb=null;
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    if(_idb)return res(_idb);
+    if(!window.indexedDB)return rej(new Error('IndexedDB indisponível'));
+    let rq;
+    try{rq=indexedDB.open('autoglass_orcamentos',1)}catch(e){return rej(e)}
+    rq.onupgradeneeded=()=>{const d=rq.result;if(!d.objectStoreNames.contains('kv'))d.createObjectStore('kv')};
+    rq.onsuccess=()=>{_idb=rq.result;res(_idb)};
+    rq.onerror=()=>rej(rq.error||new Error('IndexedDB bloqueado'));
+    rq.onblocked=()=>rej(new Error('IndexedDB bloqueado'));
+  });
+}
+function idbGet(k){return idbOpen().then(d=>new Promise((res,rej)=>{
+  const r=d.transaction('kv','readonly').objectStore('kv').get(k);
+  r.onsuccess=()=>res(r.result??null);r.onerror=()=>rej(r.error);}))}
+function idbSet(k,v){return idbOpen().then(d=>new Promise((res,rej)=>{
+  const tx=d.transaction('kv','readwrite');tx.objectStore('kv').put(v,k);
+  tx.oncomplete=()=>res(true);tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error||new Error('abortado'));}))}
+
+/* ── camada de persistência: escolhe o melhor recurso disponível ──
+   1. window.storage  — quando roda dentro do artifact do Claude
+   2. IndexedDB       — navegador comum (hospedado ou arquivo local)
+   3. localStorage    — reserva, com limite de ~5 MB
+   4. memória         — último recurso: avisa e oferece backup manual        */
 const Store={
-  get ok(){return typeof window.storage!=='undefined'&&!!window.storage&&typeof window.storage.set==='function'},
+  mode:'mem',
+  label:'sessão temporária',
+  quotaAvisada:false,
+  async init(){
+    if(typeof window.storage!=='undefined'&&window.storage&&typeof window.storage.set==='function'){
+      try{await window.storage.set('ag:ping','1');this.mode='artifact';this.label='storage do Claude';return}
+      catch(e){}
+    }
+    try{await idbSet('ag:ping','1');await idbGet('ag:ping');this.mode='idb';this.label='IndexedDB do navegador';return}
+    catch(e){console.warn('IndexedDB:',e&&e.message)}
+    try{localStorage.setItem('ag:ping','1');localStorage.removeItem('ag:ping');
+      this.mode='ls';this.label='localStorage do navegador';return}
+    catch(e){console.warn('localStorage:',e&&e.message)}
+    this.mode='mem';this.label='sessão temporária (sem persistência)';
+  },
+  get ok(){return this.mode!=='mem'},
   async get(k){
-    if(!this.ok)return mem[k]??null;
-    try{const r=await window.storage.get(k);return r&&r.value?JSON.parse(r.value):null}catch(e){return null}
+    try{
+      if(this.mode==='artifact'){const r=await window.storage.get(k);return r&&r.value?JSON.parse(r.value):null}
+      if(this.mode==='idb'){const v=await idbGet(k);return v??null}
+      if(this.mode==='ls'){const s=localStorage.getItem(k);return s?JSON.parse(s):null}
+    }catch(e){/* chave ausente ou ilegível */}
+    return mem[k]??null;
   },
   async set(k,v){
     mem[k]=v;
-    if(!this.ok)return false;
-    try{await window.storage.set(k,JSON.stringify(v));return true}catch(e){console.warn('storage',e);return false}
+    try{
+      if(this.mode==='artifact'){await window.storage.set(k,JSON.stringify(v));return true}
+      if(this.mode==='idb'){await idbSet(k,v);return true}
+      if(this.mode==='ls'){localStorage.setItem(k,JSON.stringify(v));return true}
+    }catch(e){
+      const cheio=/quota|exceeded|full/i.test(String(e&&e.message||e));
+      if(cheio&&!this.quotaAvisada){
+        this.quotaAvisada=true;
+        setTimeout(()=>toast('Armazenamento local cheio. Exporte um backup em Configurações → Dados.','err'),300);
+      }
+      console.warn('falha ao gravar',k,e);
+    }
+    return false;
   }
 };
 let DB={config:null,analistas:[],clientes:[],unidades:[],empresas:[],produtos:[],orcamentos:[],seq:0};
@@ -562,6 +621,7 @@ function save(part,agora){
     if(part==='prod')Store.set(KEYS.prod,DB.produtos);
   };
   if(agora)grava();else savers[part]=setTimeout(grava,140);
+  if(typeof sincronizar==='function')sincronizar(part);   /* espelha no Supabase quando conectado */
 }
 const SEEDVER=3;
 const DEFCFG={
@@ -573,7 +633,8 @@ const DEFCFG={
   txtCola:'Valor para vidro instalado.',
   txtSimples:'Valor para vidro instalado.',
   chassiPadrao:16,colaPadrao:53,seedVer:SEEDVER,tema:'claro',
-  onboarded:false,clientePadrao:'',unidadePadrao:'',
+  onboarded:false,clientePadrao:'',unidadePadrao:'',prodDirty:false,autoBackup:true,ultimoBackup:'',
+  sbUrl:'',sbKey:'',
   mailRemetente:'comercial@autoglass.com.br',mailNome:'Autoglass · Comercial Frotas',
   mailAssunto:'Orçamento Autoglass — {numero}',
   mailCorpo:'Olá,\n\nSegue em anexo o orçamento {numero} referente a {identificacao}.\n\nValor total: {total}\nValidade: {validade} dias.\n\nQualquer dúvida, estou à disposição.\n\nAtenciosamente,\n{consultor}',
@@ -582,6 +643,7 @@ const DEFCFG={
   qrcode:true,usuario:'',perfil:'Administrador'
 };
 async function boot(){
+  await Store.init();
   const meta=await Store.get(KEYS.meta);
   const orc=await Store.get(KEYS.orc);
   const prod=await Store.get(KEYS.prod);
@@ -589,8 +651,10 @@ async function boot(){
     DB.unidades=meta.unidades||[];DB.empresas=meta.empresas||[];DB.seq=meta.seq||0}
   else{seedMeta();save('meta')}
   DB.orcamentos=orc||[];
+  /* a base de peças só ocupa espaço no armazenamento depois de editada;
+     enquanto estiver intacta, é reconstruída do catálogo embarcado a cada abertura */
   DB.produtos=prod&&prod.length?prod:[];
-  if(!DB.produtos.length){DB.produtos=await unpackProdutos();save('prod')}
+  if(!DB.produtos.length)DB.produtos=await unpackProdutos();
   /* atualização da base embarcada: unidades completas + catálogo integral de peças */
   if(!DB.empresas||!DB.empresas.length)DB.empresas=clone(SEED_EMPRESAS);
   if((DB.config.seedVer||0)<SEEDVER){
@@ -603,7 +667,7 @@ async function boot(){
       if(num(DB.config.colaPadrao)===48)DB.config.colaPadrao=53;
       DB.clientes.forEach(c=>{if(num(c.chassi_valor)===13)c.chassi_valor=16;if(num(c.cola_valor)===48)c.cola_valor=53});
     }
-    DB.config.seedVer=SEEDVER;save('meta');save('prod');
+    DB.config.seedVer=SEEDVER;save('meta');if(DB.config.prodDirty)save('prod');
     if(add)setTimeout(()=>toast(add.toLocaleString('pt-BR')+' peças novas na base'),900);
   }
 }
@@ -947,6 +1011,9 @@ function router(){
   const[t,s]=TITLES[ROUTE.k];$('#ttl').textContent=t;$('#sub').textContent=s;
   $('#topActions').innerHTML='';window.scrollTo(0,0);
   ({hub:vHub,dash:vDash,novo:vNovo,orc:vOrc,cli:vCli,uni:vUni,prod:vProd,cfg:vCfg})[ROUTE.k](ROUTE.arg);
+  /* ao abrir listas, confere se alguém da equipe alterou algo */
+  if(['orc','dash','hub'].includes(ROUTE.k)&&typeof Cloud!=='undefined'&&Cloud.pronto())
+    Cloud.refrescar().then(m=>{if(m&&['orc','dash','hub'].includes(ROUTE.k))router()});
 }
 addEventListener('hashchange',router);
 
@@ -2339,6 +2406,8 @@ function uniForm(u,done){
     }});
 }
 /* ═══════════════════ PRODUTOS ═══════════════════ */
+/* grava a base só a partir da primeira edição — antes disso ela vem do catálogo embarcado */
+function marcarProdutos(){DB.config.prodDirty=true;save('meta');save('prod')}
 let pPage=0;
 function vProd(){
   $('#topActions').innerHTML=`<button class="btn" id="pImp">${ico('up')}Importar CSV</button>
@@ -2387,10 +2456,10 @@ function vProd(){
       prodForm(DB.produtos.find(p=>p.id===tr.dataset.id),()=>vProd())});
     $$('#pList [data-m]').forEach(b=>b.onclick=e=>{e.stopPropagation();const p=DB.produtos.find(x=>x.id===b.dataset.m);
       popMenu(b,[{k:'e',label:'Editar',icon:'edit',fn:()=>prodForm(p,()=>vProd())},
-        {k:'t',label:p.ativo?'Inativar':'Ativar',icon:'refresh',fn:()=>{p.ativo=!p.ativo;save('prod');draw()}},
+        {k:'t',label:p.ativo?'Inativar':'Ativar',icon:'refresh',fn:()=>{p.ativo=!p.ativo;marcarProdutos();draw()}},
         '-',{k:'d',label:'Excluir',icon:'trash',danger:true,fn:async()=>{
           if(await confirmar('Excluir produto','Excluir '+esc(p.codigo)+'?','Excluir')){
-            DB.produtos=DB.produtos.filter(x=>x.id!==p.id);save('prod');vProd()}}}]);
+            DB.produtos=DB.produtos.filter(x=>x.id!==p.id);marcarProdutos();vProd()}}}]);
     });
   };
   draw();$('#pq').oninput=debounce(()=>{pPage=0;draw()},200);$('#pCat').onchange=()=>{pPage=0;draw()};
@@ -2421,7 +2490,7 @@ function prodForm(p,done){
         Object.assign(p,{codigo:g('gCd'),descricao:g('gDs'),categoria:g('gCa').toUpperCase(),
           aplicacao:g('gAp')||aplic(g('gDs')),valor:num(g('gVl')),ativo:ov.querySelector('#gAt').checked});
         const i=DB.produtos.findIndex(x=>x.id===p.id);i<0?DB.produtos.unshift(p):DB.produtos[i]=p;
-        save('prod');close();toast(n?'Produto cadastrado':'Produto atualizado');done&&done(p);
+        marcarProdutos();close();toast(n?'Produto cadastrado':'Produto atualizado');done&&done(p);
       };
     }});
 }
@@ -2475,7 +2544,318 @@ function parseCSV(text,merge){
     if(byCod[cod]){if(merge){Object.assign(byCod[cod],o);upd++}}
     else{const p={id:uid(),...o};DB.produtos.push(p);byCod[cod]=p;add++}
   }
-  save('prod');return{add,upd};
+  marcarProdutos();return{add,upd};
+}
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   SUPABASE · banco compartilhado entre os colaboradores
+   Preencha as duas constantes abaixo antes de publicar no GitHub.
+   Elas ficam no arquivo, então todo mundo que abrir a página já
+   conecta no mesmo banco — só precisa entrar com e-mail e senha.
+   A chave "anon" é pública por natureza: quem protege os dados
+   são as políticas de RLS aplicadas pelo schema SQL.
+   ═══════════════════════════════════════════════════════════════ */
+const SUPABASE={
+  url:'',   // ex.: https://sldajxdoclkojauyadir.supabase.co
+  key:''    // sb_publishable_BVVDIK1pGE6q6OLhZJX6FQ_afODSygX
+};
+const SB_LIB='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const Cloud={
+  on:false, sb:null, user:null, perfil:'', erro:'', ocupado:false,
+  sigs:{}, idsOrc:new Set(), canal:null,
+  cfg(){return{url:(DB.config?.sbUrl||SUPABASE.url||'').trim(),key:(DB.config?.sbKey||SUPABASE.key||'').trim()}},
+  configurado(){const c=this.cfg();return !!(c.url&&c.key)},
+
+  async init(){
+    const {url,key}=this.cfg();
+    if(!url||!key)return false;
+    try{
+      const m=await import(SB_LIB);
+      this.sb=m.createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'ag-auth'}});
+      const {data}=await this.sb.auth.getSession();
+      this.user=data?.session?.user||null;
+      this.on=true;this.erro='';
+      this.sb.auth.onAuthStateChange((_e,s)=>{this.user=s?.user||null});
+      return true;
+    }catch(e){this.erro=e.message||String(e);this.on=false;console.warn('Supabase:',e);return false}
+  },
+  async login(email,senha){
+    const {data,error}=await this.sb.auth.signInWithPassword({email,password:senha});
+    if(error)throw error;
+    this.user=data.user;return data.user;
+  },
+  async recuperar(email){
+    const {error}=await this.sb.auth.resetPasswordForEmail(email,{redirectTo:location.href});
+    if(error)throw error;
+  },
+  async logout(){try{await this.sb.auth.signOut()}catch(e){}this.user=null;this.parar();location.reload()},
+
+  /* ── carga inicial: o servidor é a fonte da verdade ── */
+  async pull(){
+    const sb=this.sb;
+    const [cfg,ana,cli,uni,emp,orc,ite,his,prod]=await Promise.all([
+      sb.from('configuracoes').select('dados').eq('id',1).maybeSingle(),
+      sb.from('analistas').select('*'),
+      sb.from('clientes').select('*'),
+      sb.from('unidades').select('*'),
+      sb.from('empresas').select('*'),
+      sb.from('orcamentos').select('*').order('created_at',{ascending:false}),
+      sb.from('orcamento_itens').select('*').order('ordem'),
+      sb.from('historico').select('*').order('data',{ascending:false}),
+      sb.from('produtos').select('*'),
+    ]);
+    const err=[cfg,ana,cli,uni,emp,orc,ite,his,prod].find(r=>r.error);
+    if(err)throw err.error;
+
+    if(cfg.data?.dados)DB.config={...DB.config,...cfg.data.dados,sbUrl:DB.config.sbUrl,sbKey:DB.config.sbKey};
+    if(ana.data?.length)DB.analistas=ana.data.map(r=>({id:r.id,nome:r.nome,telefone:r.telefone||'',
+      whatsapp:r.whatsapp||'',email:r.email||'',ativo:r.ativo!==false}));
+    if(cli.data?.length)DB.clientes=cli.data.map(r=>({id:r.id,razao_social:r.razao_social,
+      nome_fantasia:r.nome_fantasia||r.razao_social,cnpj:r.cnpj||'',telefone:r.telefone||'',email:r.email||'',
+      endereco:r.endereco||'',cidade:r.cidade||'',estado:r.estado||'',cep:r.cep||'',logo:r.logo||'',
+      chassi_ativo:!!r.chassi_ativo,chassi_valor:Number(r.chassi_valor)||0,cola_ativo:!!r.cola_ativo,
+      cola_valor:Number(r.cola_valor)||0,analista_id:r.analista_id||'',obs_padrao:r.obs_padrao||'',ativo:r.ativo!==false}));
+    if(uni.data?.length)DB.unidades=uni.data.map(r=>({id:r.id,codigo:r.codigo,razao_social:r.razao_social,
+      rs_auto:!!r.rs_auto,cnpj:r.cnpj||'',endereco:r.endereco||'',bairro:r.bairro||'',cidade:r.cidade||'',
+      estado:r.estado||'',cep:r.cep||'',telefone:r.telefone||'',ramal:r.ramal||'',email:r.email||'',ativo:r.ativo!==false}));
+    if(emp.data?.length)DB.empresas=emp.data.map(r=>({id:r.id,raiz:r.raiz,razao_social:r.razao_social,
+      cnpj:r.cnpj,banco:r.banco||'',agencia:r.agencia||'',conta:r.conta||'',pix:r.pix||''}));
+    if(prod.data?.length)DB.produtos=prod.data.map(r=>({id:r.id,codigo:r.codigo,descricao:r.descricao,
+      categoria:r.categoria||'',aplicacao:r.aplicacao||'',valor:Number(r.valor)||0,ativo:r.ativo!==false}));
+
+    const porOrc={},hisOrc={};
+    (ite.data||[]).forEach(i=>(porOrc[i.orcamento_id]=porOrc[i.orcamento_id]||[]).push({
+      produto_id:i.produto_id||'',codigo:i.codigo,descricao:i.descricao,qtd:Number(i.qtd)||1,
+      valor_unit:Number(i.valor_unit)||0,chassi:!!i.chassi,cola:!!i.cola,valor_total:Number(i.valor_total)||0}));
+    (his.data||[]).forEach(h=>(hisOrc[h.orcamento_id]=hisOrc[h.orcamento_id]||[]).push({
+      acao:h.acao,usuario:h.usuario||'',data:h.data}));
+    DB.orcamentos=(orc.data||[]).map(r=>({id:r.id,numero:r.numero,versao:r.versao||1,pai_id:r.pai_id||null,
+      cliente_id:r.cliente_id||'',analista_id:r.analista_id||'',unidade_id:r.unidade_id||'',
+      ident_tipo:r.ident_tipo||'Placa',ident_valor:r.ident_valor||'',veiculo:r.veiculo||'',
+      tipo_servico:r.tipo_servico||'Serviço na unidade',endereco:r.endereco||{cep:'',logradouro:'',numero:'',compl:'',bairro:'',cidade:'',uf:''},
+      data:r.data,data_agend:r.data_agend||'',hora_agend:r.hora_agend||'',obs:r.obs||[],
+      itens:porOrc[r.id]||[],chassi_valor:Number(r.chassi_valor)||0,cola_valor:Number(r.cola_valor)||0,
+      subtotal:Number(r.subtotal)||0,instalacao:Number(r.instalacao)||0,total:Number(r.total)||0,
+      status:r.status||'Rascunho',validade_dias:r.validade_dias||5,hist:hisOrc[r.id]||[],
+      created_at:r.created_at,updated_at:r.updated_at,criado_por:r.criado_por||null}));
+
+    /* numeração continua a partir do maior número já usado no servidor */
+    const maior=DB.orcamentos.reduce((m,o)=>{const n=parseInt(String(o.numero).split('-').pop(),10);
+      return isNaN(n)?m:Math.max(m,n)},0);
+    if(maior>=(DB.config.proxNumero||1))DB.config.proxNumero=maior+1;
+
+    this.idsOrc=new Set(DB.orcamentos.map(o=>o.id));
+    this.sigs={};DB.orcamentos.forEach(o=>this.sigs[o.id]=sig(o));
+    DB.config.onboarded=true;
+    save('meta');save('orc');
+    const u=DB.analistas.find(a=>norm(a.email)===norm(this.user?.email||''));
+    if(u)DB.config.usuario=u.nome;
+    return DB.orcamentos.length;
+  },
+
+  /* ── cadastros: poucas linhas, envia tudo de uma vez ── */
+  async pushMeta(){
+    if(!this.pronto())return;
+    const sb=this.sb;
+    const tarefas=[
+      sb.from('configuracoes').upsert({id:1,dados:cfgLimpa(),updated_at:new Date().toISOString()}),
+      DB.analistas.length?sb.from('analistas').upsert(DB.analistas.map(a=>({id:a.id,nome:a.nome,
+        telefone:a.telefone,whatsapp:a.whatsapp,email:a.email,ativo:a.ativo!==false}))):null,
+      DB.clientes.length?sb.from('clientes').upsert(DB.clientes.map(c=>({id:c.id,razao_social:c.razao_social,
+        nome_fantasia:c.nome_fantasia,cnpj:c.cnpj||null,telefone:c.telefone,email:c.email,endereco:c.endereco,
+        cidade:c.cidade,estado:c.estado||null,cep:c.cep,logo:c.logo,chassi_ativo:c.chassi_ativo,
+        chassi_valor:num(c.chassi_valor),cola_ativo:c.cola_ativo,cola_valor:num(c.cola_valor),
+        analista_id:c.analista_id||null,obs_padrao:c.obs_padrao,ativo:c.ativo!==false}))):null,
+      DB.unidades.length?sb.from('unidades').upsert(DB.unidades.map(u=>({id:u.id,codigo:u.codigo,
+        razao_social:u.razao_social,rs_auto:!!u.rs_auto,cnpj:u.cnpj,endereco:u.endereco,bairro:u.bairro,
+        cidade:u.cidade,estado:u.estado||null,cep:u.cep,telefone:u.telefone,ramal:u.ramal,email:u.email,
+        ativo:u.ativo!==false}))):null,
+      DB.empresas.length?sb.from('empresas').upsert(DB.empresas.map(e=>({id:e.id,raiz:e.raiz,
+        razao_social:e.razao_social,cnpj:e.cnpj,banco:e.banco,agencia:e.agencia,conta:e.conta,pix:e.pix}))):null,
+    ].filter(Boolean);
+    const res=await Promise.all(tarefas);
+    const err=res.find(r=>r.error);
+    if(err)throw err.error;
+  },
+
+  /* ── orçamentos: envia só o que mudou desde a última sincronização ── */
+  async pushOrcs(){
+    if(!this.pronto())return {enviados:0,removidos:0};
+    const mudados=DB.orcamentos.filter(o=>this.sigs[o.id]!==sig(o));
+    const atuais=new Set(DB.orcamentos.map(o=>o.id));
+    const removidos=[...this.idsOrc].filter(id=>!atuais.has(id));
+    for(const o of mudados)await this.pushOrc(o);
+    if(removidos.length){
+      const {error}=await this.sb.from('orcamentos').delete().in('id',removidos);
+      if(error)throw error;
+      removidos.forEach(id=>{this.idsOrc.delete(id);delete this.sigs[id]});
+    }
+    return {enviados:mudados.length,removidos:removidos.length};
+  },
+  async pushOrc(o,tentativa=0){
+    const sb=this.sb;
+    const linha={id:o.id,numero:o.numero,versao:o.versao||1,pai_id:o.pai_id||null,
+      cliente_id:o.cliente_id||null,analista_id:o.analista_id||null,unidade_id:o.unidade_id||null,
+      ident_tipo:o.ident_tipo,ident_valor:o.ident_valor,veiculo:o.veiculo||'',tipo_servico:o.tipo_servico,
+      endereco:o.endereco||{},data:o.data,data_agend:o.data_agend||null,hora_agend:o.hora_agend||null,
+      obs:o.obs||[],chassi_valor:num(o.chassi_valor),cola_valor:num(o.cola_valor),
+      subtotal:num(o.subtotal),instalacao:num(o.instalacao),total:num(o.total),status:o.status,
+      validade_dias:num(o.validade_dias)||5,criado_por:o.criado_por||this.user?.id||null,
+      created_at:o.created_at,updated_at:new Date().toISOString()};
+    const {error}=await sb.from('orcamentos').upsert(linha);
+    if(error){
+      /* número já usado por outro colaborador: pega o próximo e tenta de novo */
+      if(String(error.code)==='23505'&&tentativa<6){
+        const n=(DB.config.proxNumero||1)+1;DB.config.proxNumero=n;save('meta');
+        o.numero=`${DB.config.prefixo}-${new Date().getFullYear()}-${String(n).padStart(6,'0')}`;
+        toast('Número em uso por outro usuário. Renumerado para '+o.numero);
+        return this.pushOrc(o,tentativa+1);
+      }
+      throw error;
+    }
+    await sb.from('orcamento_itens').delete().eq('orcamento_id',o.id);
+    if(o.itens?.length){
+      const {error:e2}=await sb.from('orcamento_itens').insert(o.itens.map((i,ix)=>({
+        id:o.id+'-'+ix,orcamento_id:o.id,ordem:ix,produto_id:i.produto_id||null,codigo:i.codigo,
+        descricao:i.descricao,qtd:num(i.qtd)||1,valor_unit:num(i.valor_unit),chassi:!!i.chassi,
+        cola:!!i.cola,valor_total:num(i.valor_total)})));
+      if(e2)throw e2;
+    }
+    await sb.from('historico').delete().eq('orcamento_id',o.id);
+    if(o.hist?.length){
+      const {error:e3}=await sb.from('historico').insert(o.hist.map((h,ix)=>({
+        id:o.id+'-h'+ix,orcamento_id:o.id,acao:h.acao,usuario:h.usuario||'',data:h.data})));
+      if(e3)throw e3;
+    }
+    this.sigs[o.id]=sig(o);this.idsOrc.add(o.id);
+  },
+  async pushProdutos(onProgresso){
+    if(!this.pronto())throw new Error('sem conexão');
+    const linhas=DB.produtos.map(p=>({id:p.id,codigo:p.codigo,descricao:p.descricao,categoria:p.categoria,
+      aplicacao:p.aplicacao,valor:num(p.valor),ativo:p.ativo!==false}));
+    const lote=500;
+    for(let i=0;i<linhas.length;i+=lote){
+      const {error}=await this.sb.from('produtos').upsert(linhas.slice(i,i+lote),{onConflict:'codigo'});
+      if(error)throw error;
+      onProgresso&&onProgresso(Math.min(i+lote,linhas.length),linhas.length);
+    }
+    return linhas.length;
+  },
+  pronto(){return this.on&&this.sb&&this.user},
+
+  /* ── recarrega orçamentos quando outro colaborador altera algo ── */
+  async refrescar(){
+    if(!this.pronto()||this.ocupado)return;
+    this.ocupado=true;
+    try{
+      const {data,error}=await this.sb.from('orcamentos').select('id,updated_at');
+      if(error)throw error;
+      const mudouFora=(data||[]).some(r=>{const l=orc(r.id);
+        return !l||(l.updated_at||'')<r.updated_at})||data.length!==DB.orcamentos.length;
+      if(mudouFora){await this.pull();return true}
+    }catch(e){console.warn('refresh',e)}finally{this.ocupado=false}
+    return false;
+  },
+  escutar(){
+    if(!this.pronto()||this.canal)return;
+    try{
+      this.canal=this.sb.channel('orc').on('postgres_changes',
+        {event:'*',schema:'public',table:'orcamentos'},debounce(async()=>{
+          if(ROUTE.k==='novo')return;                 /* não atrapalha quem está digitando */
+          if(await this.refrescar()&&['orc','dash','hub'].includes(ROUTE.k))router();
+        },1200)).subscribe();
+    }catch(e){console.warn('realtime',e)}
+  },
+  parar(){try{this.canal&&this.sb.removeChannel(this.canal)}catch(e){}this.canal=null},
+};
+function sig(o){return JSON.stringify(o)}
+function cfgLimpa(){const c={...DB.config};delete c.sbUrl;delete c.sbKey;delete c.prodDirty;return c}
+
+/* fila de envio: qualquer save local reflete no servidor logo em seguida */
+let filaEnvio=null,ultimoErro='';
+function sincronizar(part){
+  if(!Cloud.pronto())return;
+  clearTimeout(filaEnvio);
+  filaEnvio=setTimeout(async()=>{
+    marcaSync('enviando');
+    try{
+      if(part==='prod'&&DB.config.prodDirty)await Cloud.pushProdutos();
+      await Cloud.pushMeta();
+      await Cloud.pushOrcs();
+      ultimoErro='';marcaSync('ok');
+    }catch(e){
+      ultimoErro=e.message||String(e);marcaSync('erro');
+      console.warn('sync',e);
+      toast('Não foi possível salvar na nuvem: '+ultimoErro,'err');
+    }
+  },700);
+}
+function marcaSync(estado){
+  const el=document.getElementById('syncDot');if(!el)return;
+  const m={enviando:['var(--warn)','Enviando alterações…'],ok:['var(--ok)','Tudo sincronizado'],
+    erro:['var(--dang)','Falha ao sincronizar — clique para tentar de novo']};
+  const[cor,txt]=m[estado]||m.ok;
+  el.style.color=cor;el.title=txt;
+}
+
+/* ── tela de acesso ── */
+function telaLogin(){
+  return new Promise(done=>{
+    const ov=document.createElement('div');ov.className='ob';document.body.appendChild(ov);
+    let modo='login',carregando=false,ultimoMail='';
+    function render(msg,tipo){
+      ov.innerHTML=`<div class="ob-card">
+        <img src="${DB.config.logo||LOGO_AG}" alt="Autoglass">
+        <h2>${modo==='login'?'Entrar no sistema':'Recuperar acesso'}</h2>
+        <p class="lead">${modo==='login'
+          ? 'Use o e-mail e a senha cadastrados pelo administrador. Os orçamentos ficam no banco da equipe.'
+          : 'Informe seu e-mail. Você receberá um link para definir uma nova senha.'}</p>
+        <div class="ob-fields">
+          <label class="f"><span>E-mail</span><input class="inp" id="lgMail" type="email" autocomplete="username" placeholder="nome@autoglass.com.br"></label>
+          ${modo==='login'?`<label class="f"><span>Senha</span><input class="inp" id="lgSenha" type="password" autocomplete="current-password"></label>`:''}
+          ${msg?`<div class="row" style="gap:8px;padding:11px;border-radius:10px;background:${tipo==='err'?'var(--dang-bg)':'var(--ok-bg)'}">
+            <span style="color:${tipo==='err'?'var(--dang)':'var(--ok)'};display:flex">${ico(tipo==='err'?'alert':'chk')}</span>
+            <span class="tiny">${esc(msg)}</span></div>`:''}
+        </div>
+        <div class="ob-nav">
+          <button class="ob-skip" id="lgAlt">${modo==='login'?'Esqueci minha senha':'Voltar para o acesso'}</button>
+          <div class="spacer"></div>
+          <button class="btn pri" id="lgOk" ${carregando?'disabled':''}>
+            ${carregando?'Aguarde…':(modo==='login'?'Entrar':'Enviar link')}</button>
+        </div>
+        <div class="tiny muted" style="margin-top:14px">Banco: ${esc(String(Cloud.cfg().url||'').replace('https://','').replace('http://',''))}</div>
+      </div>`;
+      const mail=ov.querySelector('#lgMail');
+      try{mail.value=ultimoMail||localStorage.getItem('ag:ultimoEmail')||''}catch(e){mail.value=ultimoMail||''}
+      (modo==='login'&&mail.value?ov.querySelector('#lgSenha'):mail).focus();
+      ov.querySelector('#lgAlt').onclick=()=>{modo=modo==='login'?'reset':'login';render()};
+      ov.querySelector('#lgOk').onclick=enviar;
+      ov.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();enviar()}};
+      async function enviar(){
+        const email=ov.querySelector('#lgMail').value.trim();ultimoMail=email;
+        const senha=ov.querySelector('#lgSenha')?.value||'';   /* lido antes do redesenho */
+        if(!/.+@.+\..+/.test(email))return render('Informe um e-mail válido','err');
+        if(modo==='login'&&!senha)return render('Informe a senha','err');
+        carregando=true;render();
+        try{
+          if(modo==='reset'){await Cloud.recuperar(email);modo='login';carregando=false;
+            return render('Link enviado. Confira sua caixa de entrada.','ok')}
+          await Cloud.login(email,senha);
+          try{localStorage.setItem('ag:ultimoEmail',email)}catch(e){}
+          ov.remove();done(true);
+        }catch(e){
+          carregando=false;
+          const m=/Invalid login/i.test(e.message)?'E-mail ou senha incorretos.'
+            :/Email not confirmed/i.test(e.message)?'Confirme o e-mail antes de entrar.':e.message;
+          render(m,'err');
+        }
+      }
+    }
+    render();
+  });
 }
 </script>
 
@@ -2485,7 +2865,7 @@ let cfgTab='geral';
 function vCfg(){
   const c=DB.config;
   const TABS=[['geral','Geral'],['pdf','PDF e instalação'],['mail','E-mail'],['integ','Integrações'],
-    ['team','Equipe'],['seg','Acessos'],['dados','Dados e backup']];
+    ['team','Equipe'],['seg','Acessos'],['nuvem','Nuvem e equipe'],['dados','Dados e backup']];
   $('#view').innerHTML=`<div class="tabs">${TABS.map(([k,t])=>`<button class="tab ${cfgTab===k?'on':''}" data-t="${k}">${t}</button>`).join('')}</div><div id="cfgBody"></div>`;
   $$('[data-t]').forEach(b=>b.onclick=()=>{cfgTab=b.dataset.t;vCfg()});
   const body=$('#cfgBody');
@@ -2623,11 +3003,74 @@ function vCfg(){
     $$('[data-p]').forEach(b=>b.onclick=()=>{c.perfil=b.dataset.p;save('meta');shell();vCfg();toast('Perfil: '+b.dataset.p)});
     return;
   }
+  if(cfgTab==='nuvem'){
+    const c2=Cloud.cfg(),fixo=!!SUPABASE.url;
+    body.innerHTML=`<div class="grid g2" style="align-items:start">
+      <div class="card"><div class="card-h"><div><h3>Banco compartilhado</h3>
+        <p>Com o Supabase conectado, todos os colaboradores veem os mesmos orçamentos</p></div></div>
+        <div class="card-b grid" style="gap:14px">
+          <div class="row" style="gap:9px;padding:12px;border-radius:10px;background:${Cloud.pronto()?'var(--ok-bg)':Cloud.configurado()?'var(--warn-soft)':'var(--surface-2)'}">
+            <span style="color:${Cloud.pronto()?'var(--ok)':'var(--warn)'};display:flex">${ico(Cloud.pronto()?'chk':'alert')}</span>
+            <span class="tiny" style="flex:1">${Cloud.pronto()
+              ? 'Conectado como <b>'+esc(Cloud.user.email)+'</b>. Cada alteração vai para o banco da equipe.'
+              : Cloud.configurado()
+                ? (Cloud.erro?'Erro ao conectar: '+esc(Cloud.erro):'Configurado, mas sem sessão ativa. Recarregue a página para entrar.')
+                : 'Sem Supabase configurado. O sistema está gravando apenas neste navegador ('+esc(Store.label)+').'}</span>
+            ${Cloud.pronto()?`<button class="btn sm" id="cSair">Sair da conta</button>`:''}
+          </div>
+          ${fixo?`<div class="hint">URL e chave vêm gravadas no arquivo publicado. Os campos abaixo servem para
+            apontar este navegador a outro projeto, por exemplo um ambiente de teste.</div>`:''}
+          ${F('sbU','URL do projeto',DB.config.sbUrl||SUPABASE.url,'https://xxxx.supabase.co')}
+          ${F('sbK','Chave anon / publishable',DB.config.sbKey?'••••••••••••••••':(SUPABASE.key?'••••••••••••••••':''),'eyJ...')}
+          <div class="hint">No painel do Supabase: <b>Project Settings → API</b>. A chave anon é pública;
+          o que protege os dados são as políticas de RLS do schema.</div>
+          <div class="row" style="gap:8px"><button class="btn pri" id="sbSalvar">${ico('save')}Salvar e reconectar</button>
+            ${Cloud.configurado()?`<button class="btn" id="sbLimpar">Usar somente este navegador</button>`:''}</div>
+        </div></div>
+      <div class="card"><div class="card-h"><div><h3>Sincronização</h3>
+        <p>Enviar e receber dados manualmente quando precisar</p></div></div>
+        <div class="card-b grid" style="gap:10px">
+          <button class="btn block" id="sbPush" ${Cloud.pronto()?'':'disabled'}>${ico('up')}Enviar cadastros e orçamentos agora</button>
+          <button class="btn block" id="sbProd" ${Cloud.pronto()?'':'disabled'}>${ico('box')}Enviar base de peças (${DB.produtos.length.toLocaleString('pt-BR')} itens)</button>
+          <button class="btn block" id="sbPull" ${Cloud.pronto()?'':'disabled'}>${ico('dl')}Baixar tudo do servidor</button>
+          <div id="sbProg" class="tiny muted"></div>
+          <hr style="border:0;border-top:1px solid var(--line-2);margin:6px 0">
+          <div class="tiny muted" style="line-height:1.7">O envio da base de peças precisa ser feito
+          uma única vez, por um administrador. Depois disso ela passa a vir do servidor para todo mundo.
+          Em caso de edição simultânea do mesmo orçamento, vale a última gravação.</div>
+        </div></div></div>`;
+    $('#cSair')&&($('#cSair').onclick=async()=>{
+      if(await confirmar('Sair da conta','Encerrar a sessão neste navegador?','Sair',false))Cloud.logout()});
+    $('#sbSalvar').onclick=()=>{
+      const u=$('#sbU').value.trim(),k=$('#sbK').value.trim();
+      DB.config.sbUrl=u;
+      if(k&&!/^•+$/.test(k))DB.config.sbKey=k;
+      save('meta',true);toast('Configuração salva. Recarregando…');setTimeout(()=>location.reload(),800);
+    };
+    $('#sbLimpar')&&($('#sbLimpar').onclick=async()=>{
+      if(await confirmar('Desconectar do banco','Este navegador passa a trabalhar apenas com dados locais. Os dados já enviados continuam no servidor.','Desconectar',false)){
+        DB.config.sbUrl='';DB.config.sbKey='';save('meta',true);setTimeout(()=>location.reload(),400)}});
+    $('#sbPush').onclick=async()=>{
+      $('#sbProg').textContent='Enviando…';
+      try{await Cloud.pushMeta();const r=await Cloud.pushOrcs();
+        $('#sbProg').textContent=`Cadastros enviados · ${r.enviados} orçamento(s) atualizados${r.removidos?', '+r.removidos+' removidos':''}.`;
+        toast('Sincronizado com o servidor')}
+      catch(e){$('#sbProg').textContent='Falha: '+e.message;toast('Falha ao enviar: '+e.message,'err')}};
+    $('#sbProd').onclick=async()=>{
+      try{await Cloud.pushProdutos((f,t)=>{$('#sbProg').textContent=`Enviando peças… ${f.toLocaleString('pt-BR')} de ${t.toLocaleString('pt-BR')}`});
+        $('#sbProg').textContent='Base de peças enviada.';toast('Base de peças no servidor')}
+      catch(e){$('#sbProg').textContent='Falha: '+e.message;toast('Falha: '+e.message,'err')}};
+    $('#sbPull').onclick=async()=>{
+      if(!await confirmar('Baixar do servidor','Os dados do servidor substituem o que está neste navegador. Continuar?','Baixar',false))return;
+      try{const n=await Cloud.pull();toast(n+' orçamento(s) carregados');shell();vCfg()}
+      catch(e){toast('Falha ao baixar: '+e.message,'err')}};
+    return;
+  }
   if(cfgTab==='dados'){
     const size=v=>{const s=JSON.stringify(v).length;return s>1e6?(s/1e6).toFixed(1)+' MB':(s/1024).toFixed(0)+' KB'};
     body.innerHTML=`<div class="grid g2" style="align-items:start">
       <div class="card"><div class="card-h"><div><h3>Armazenamento</h3>
-        <p>${Store.ok?'Persistência ativa — os dados voltam ao reabrir':'Sessão temporária — exporte o backup antes de fechar'}</p></div></div>
+        <p>${Store.ok?'Gravando em '+Store.label+' — os dados voltam ao reabrir':'Sessão temporária — exporte o backup antes de fechar'}</p></div></div>
         <div class="card-b grid" style="gap:10px">
           ${[['Clientes',DB.clientes.length,DB.clientes],['Unidades',DB.unidades.length,DB.unidades],
              ['Empresas',DB.empresas.length,DB.empresas],
@@ -2637,8 +3080,10 @@ function vCfg(){
               <span>${n}</span><span class="muted tiny">${q.toLocaleString('pt-BR')} registros · ${size(v)}</span></div>`).join('')}
           <div class="row" style="gap:8px;margin-top:6px">
             <span style="color:${Store.ok?'var(--ok)':'var(--warn)'};display:flex">${ico(Store.ok?'chk':'alert')}</span>
-            <span class="tiny">${Store.ok?'window.storage disponível: cada alteração é gravada automaticamente.'
-              :'Armazenamento persistente indisponível neste ambiente. Use Exportar backup para não perder os dados.'}</span></div>
+            <span class="tiny">${Store.ok?'Cada alteração é gravada automaticamente no '+Store.label+'. Os dados ficam neste navegador e neste endereço: outro navegador, outro dispositivo ou aba anônima começam do zero — use o backup para levá-los junto.'
+              :'Nenhum armazenamento local disponível (pode ser navegação anônima ou bloqueio de cookies e dados de site). Exporte um backup antes de fechar a aba.'}</span></div>
+          ${DB.config.prodDirty?'<div class="tiny muted">A base de peças foi editada e passou a ser gravada junto.</div>'
+            :'<div class="tiny muted">A base de peças vem embutida no arquivo e não ocupa espaço no armazenamento.</div>'}
         </div></div>
       <div class="card"><div class="card-h"><div><h3>Backup</h3><p>Arquivo JSON com todo o conteúdo do sistema</p></div></div>
         <div class="card-b grid" style="gap:10px">
@@ -2647,9 +3092,16 @@ function vCfg(){
           <button class="btn block" id="bCsv">${ico('dl')}Exportar orçamentos em CSV</button>
           <hr style="border:0;border-top:1px solid var(--line-2);margin:6px 0">
           <button class="btn dang block" id="bWipe">${ico('trash')}Apagar todos os orçamentos</button>
+          <label class="chk ${DB.config.autoBackup?'on':''}" id="lAb" style="margin-top:4px">
+            <input type="checkbox" id="cAb" ${DB.config.autoBackup?'checked':''}>
+            <span><b>Lembrete de backup</b><small>Avisa ao abrir o sistema se o último backup tem mais de 7 dias</small></span></label>
         </div></div></div>`;
-    $('#bExp').onclick=()=>dl(new Blob([JSON.stringify({v:1,exportado:new Date().toISOString(),...DB},null,1)],
-      {type:'application/json'}),'backup_orcamentos_autoglass_'+today()+'.json');
+    $('#bExp').onclick=()=>{
+      dl(new Blob([JSON.stringify({v:1,exportado:new Date().toISOString(),...DB},null,1)],
+        {type:'application/json'}),'backup_orcamentos_autoglass_'+today()+'.json');
+      DB.config.ultimoBackup=today();save('meta',true);
+    };
+    $('#cAb').onchange=e=>{DB.config.autoBackup=e.target.checked;$('#lAb').classList.toggle('on',e.target.checked);save('meta',true)};
     $('#bImp').onclick=()=>{
       const i=document.createElement('input');i.type='file';i.accept='.json';
       i.onchange=()=>{const f=i.files[0];if(!f)return;const fr=new FileReader();
@@ -2725,7 +3177,33 @@ function shell(){
   $('#urole').textContent=DB.config.perfil;
   $('#uav').textContent=DB.config.usuario?initials(DB.config.usuario):'AG';
   $('#homeBtn').innerHTML=ico('home');
+  const sd=$('#syncDot');
+  if(Cloud.configurado()){
+    sd.style.display='grid';
+    sd.innerHTML=ico(Cloud.pronto()?'cloudOk':'alert');
+    $('#urole').textContent=Cloud.user?Cloud.user.email:DB.config.perfil;
+  } else sd.style.display='none';
   applyTheme();
+}
+/* alerta quando o navegador não guarda nada, e lembrete periódico de backup */
+function avisoArmazenamento(){
+  if(!Store.ok){
+    setTimeout(()=>modal({title:'Este navegador não está guardando os dados',
+      body:`<p style="color:var(--ink-2);line-height:1.7">O sistema não conseguiu acessar nem o IndexedDB nem o
+        localStorage. Isso costuma acontecer em <b>janela anônima</b> ou quando o navegador está configurado para
+        bloquear cookies e dados de site.<br><br>Enquanto estiver assim, tudo o que você criar vale só até fechar a aba.
+        Duas saídas: abrir o sistema em uma janela normal, ou seguir usando e exportar um backup em
+        <b>Configurações → Dados</b> antes de sair.</p>`,
+      footer:`<button class="btn" data-close>Entendi</button>
+        <button class="btn pri" id="avCfg">Abrir configurações</button>`,
+      onMount(ov,close){ov.querySelector('#avCfg').onclick=()=>{close();go('cfg')}}}),700);
+    return;
+  }
+  if(!DB.config.autoBackup||!DB.orcamentos.length)return;
+  const ult=DB.config.ultimoBackup;
+  const dias=ult?Math.floor((new Date(today()+'T12:00')-new Date(ult+'T12:00'))/864e5):999;
+  if(dias>7)setTimeout(()=>toast(ult?`Último backup há ${dias} dias — vale exportar um novo`
+    :'Você ainda não exportou nenhum backup dos orçamentos'),1400);
 }
 $('#sbHome').onclick=()=>go('hub');
 $('#homeBtn').onclick=()=>go('hub');
@@ -2745,7 +3223,34 @@ addEventListener('click',e=>{if(document.body.classList.contains('drawer-open')&
   await boot();
   shell();
   if(!location.hash)location.hash='#/hub';
+
+  /* ── modo equipe: Supabase configurado no arquivo ou neste navegador ── */
+  if(Cloud.configurado()){
+    const carregando=telaCarregando('Conectando ao banco da equipe…');
+    const ok=await Cloud.init();
+    carregando.remove();
+    if(!ok){
+      toast('Sem conexão com o Supabase — trabalhando com os dados locais','err');
+    }else{
+      if(!Cloud.user)await telaLogin();
+      const c2=telaCarregando('Carregando dados da equipe…');
+      try{await Cloud.pull()}catch(e){toast('Falha ao carregar do servidor: '+e.message,'err')}
+      c2.remove();
+      Cloud.escutar();
+      shell();
+    }
+  }
   router();
   if(!DB.config.onboarded)await onboarding();
+  avisoArmazenamento();
+  marcaSync('ok');
 })();
+function telaCarregando(txt){
+  const ov=document.createElement('div');ov.className='ob';
+  ov.innerHTML=`<div class="ob-card" style="max-width:360px;text-align:center">
+    <img src="${DB.config.logo||LOGO_AG}" alt="Autoglass" style="margin:0 auto 20px">
+    <div class="progress" style="margin-bottom:12px"><i style="width:60%"></i></div>
+    <div class="tiny muted">${esc(txt)}</div></div>`;
+  document.body.appendChild(ov);return ov;
+}
 </script>
