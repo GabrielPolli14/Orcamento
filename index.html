@@ -6,6 +6,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<!-- Credenciais do Supabase. Deixe config.js ao lado do index.html:
+     assim, ao publicar uma versão nova do sistema, a conexão continua valendo.
+     O 404 no console quando o arquivo não existe é esperado e inofensivo. -->
+<script src="config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
@@ -634,7 +638,7 @@ const DEFCFG={
   txtSimples:'Valor para vidro instalado.',
   chassiPadrao:16,colaPadrao:53,seedVer:SEEDVER,tema:'claro',
   onboarded:false,clientePadrao:'',unidadePadrao:'',prodDirty:false,autoBackup:true,ultimoBackup:'',
-  sbUrl:'',sbKey:'',
+  sbUrl:'',sbKey:'',modoLocal:false,
   mailRemetente:'comercial@autoglass.com.br',mailNome:'Autoglass · Comercial Frotas',
   mailAssunto:'Orçamento Autoglass — {numero}',
   mailCorpo:'Olá,\n\nSegue em anexo o orçamento {numero} referente a {identificacao}.\n\nValor total: {total}\nValidade: {validade} dias.\n\nQualquer dúvida, estou à disposição.\n\nAtenciosamente,\n{consultor}',
@@ -2561,6 +2565,14 @@ const SUPABASE={
   url:'',   // https://sldajxdoclkojauyadir.supabase.co
   key:''    // sb_publishable_BVVDIK1pGE6q6OLhZJX6FQ_afODSygX
 };
+/* Ordem de procura das credenciais:
+   1. config.js publicado junto do index.html  (recomendado: sobrevive a cada atualização)
+   2. as constantes acima, gravadas no próprio arquivo
+   3. o que o usuário informou na tela de conexão, guardado neste navegador          */
+if(window.AG_CONFIG&&window.AG_CONFIG.url&&!SUPABASE.url){
+  SUPABASE.url=String(window.AG_CONFIG.url).trim();
+  SUPABASE.key=String(window.AG_CONFIG.key||'').trim();
+}
 const SB_LIB='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 const Cloud={
@@ -2609,6 +2621,19 @@ const Cloud={
     const {data,error}=await this.sb.from('usuarios').select('*').eq('id',this.user.id).maybeSingle();
     if(error)throw error;
     return data;
+  },
+  async listarDominios(){
+    const {data,error}=await this.sb.from('dominios_permitidos').select('*').order('dominio');
+    if(error)throw error;
+    return (data||[]).map(d=>d.dominio);
+  },
+  async addDominio(d){
+    const {error}=await this.sb.from('dominios_permitidos').insert({dominio:d});
+    if(error)throw error;
+  },
+  async removerDominio(d){
+    const {error}=await this.sb.from('dominios_permitidos').delete().eq('dominio',d);
+    if(error)throw error;
   },
   async listarUsuarios(){
     const {data,error}=await this.sb.from('usuarios').select('*').order('created_at');
@@ -2991,12 +3016,63 @@ function telaLogin(){
           const m=/Invalid login/i.test(t)?'E-mail ou senha incorretos.'
             :/Email not confirmed/i.test(t)?'Confirme o e-mail antes de entrar.'
             :/already registered|already exists/i.test(t)?'Já existe um acesso com este e-mail. Use "Esqueci minha senha".'
-            :/@autoglass/i.test(t)?'Cadastro permitido apenas para e-mails corporativos @autoglass.com.br.'
+            :/não liberado para e-mails|nao liberado para e-mails/i.test(t)?t
             :/signups? not allowed|disabled/i.test(t)?'O autocadastro está desligado no Supabase. Peça o acesso a um administrador.'
             :/password/i.test(t)?'Senha recusada: '+t
             :t;
           render(m,'err');
         }
+      }
+    }
+    render();
+  });
+}
+
+/* primeira abertura sem credenciais: pergunta antes de entrar no sistema */
+function telaConexao(){
+  return new Promise(done=>{
+    const ov=document.createElement('div');ov.className='ob';document.body.appendChild(ov);
+    let carregando=false;
+    function render(msg){
+      ov.innerHTML=`<div class="ob-card">
+        <img src="${DB.config.logo||LOGO_AG}" alt="Autoglass">
+        <h2>Conectar ao banco da equipe</h2>
+        <p class="lead">Informe o projeto do Supabase para que os orçamentos fiquem compartilhados
+        entre todos os consultores. Sem isso, o sistema funciona apenas neste dispositivo.</p>
+        <div class="ob-fields">
+          <label class="f"><span>URL do projeto <i>*</i></span>
+            <input class="inp" id="cxUrl" placeholder="https://xxxxxxxx.supabase.co" value="${esc(DB.config.sbUrl||'')}"></label>
+          <label class="f"><span>Chave anon / publishable <i>*</i></span>
+            <input class="inp" id="cxKey" placeholder="eyJhbGciOi..." value="${esc(DB.config.sbKey||'')}">
+            <div class="hint">No painel do Supabase: Project Settings → API.</div></label>
+          ${msg?`<div class="row" style="gap:8px;padding:11px;border-radius:10px;background:var(--dang-bg)">
+            <span style="color:var(--dang);display:flex">${ico('alert')}</span>
+            <span class="tiny">${esc(msg)}</span></div>`:''}
+          <div class="row" style="gap:8px;padding:11px;border-radius:10px;background:var(--surface-2)">
+            <span style="color:var(--ag);display:flex">${ico('shield')}</span>
+            <span class="tiny">Para não precisar informar isso de novo a cada atualização do sistema,
+            publique um arquivo <b>config.js</b> ao lado do index.html.</span></div>
+        </div>
+        <div class="ob-nav">
+          <button class="ob-skip" id="cxLocal">Usar só neste dispositivo</button>
+          <div class="spacer"></div>
+          <button class="btn pri" id="cxOk" ${carregando?'disabled':''}>${carregando?'Conectando…':'Conectar'}</button>
+        </div></div>`;
+      ov.querySelector('#cxUrl').focus();
+      ov.querySelector('#cxLocal').onclick=()=>{
+        DB.config.modoLocal=true;save('meta',true);ov.remove();done(false)};
+      ov.querySelector('#cxOk').onclick=conectar;
+      ov.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();conectar()}};
+      async function conectar(){
+        const url=ov.querySelector('#cxUrl').value.trim().replace(/\/+$/,'');
+        const key=ov.querySelector('#cxKey').value.trim();
+        if(!/^https:\/\/.+/.test(url))return render('A URL precisa começar com https://');
+        if(key.length<20)return render('Chave inválida. Copie a chave anon completa.');
+        carregando=true;render();
+        DB.config.sbUrl=url;DB.config.sbKey=key;DB.config.modoLocal=false;save('meta',true);
+        const ok=await Cloud.init();
+        if(!ok){carregando=false;return render('Não foi possível conectar: '+(Cloud.erro||'verifique a URL e a chave'))}
+        ov.remove();done(true);
       }
     }
     render();
@@ -3179,7 +3255,8 @@ function vCfg(){
         </div></div>`;
       return;
     }
-    body.innerHTML=`<div class="card"><div class="card-h"><div style="flex:1"><h3>Acessos da equipe</h3>
+    body.innerHTML=`<div class="card" id="acDom" style="margin-bottom:16px"></div>
+      <div class="card"><div class="card-h"><div style="flex:1"><h3>Acessos da equipe</h3>
       <p>Quem entrou pelo "Criar meu acesso" aparece aqui como pendente até ser liberado</p></div>
       <button class="btn sm" id="acRefresh">${ico('refresh')}Atualizar</button></div>
       <div id="acLista"><div class="empty tiny">Carregando…</div></div></div>
@@ -3191,6 +3268,7 @@ function vCfg(){
         </div>`).join('')}
       </div></div>`;
     $('#acRefresh').onclick=()=>vCfg();
+    desenharDominios();
     (async()=>{
       let lista=[];
       try{lista=await Cloud.listarUsuarios()}
@@ -3389,6 +3467,39 @@ function vCfg(){
   });
 }
 /* ao liberar um acesso, cria o consultor correspondente se ainda não existir */
+/* domínios de e-mail que podem criar acesso; lista vazia = qualquer e-mail */
+async function desenharDominios(){
+  const box=$('#acDom');if(!box)return;
+  let lista=[],erro='';
+  try{lista=await Cloud.listarDominios()}catch(e){erro=e.message}
+  const eu=await Cloud.meuCadastro().catch(()=>null);
+  const admin=eu?.perfil==='administrador';
+  box.innerHTML=`<div class="card-h"><div style="flex:1"><h3>Quem pode criar acesso</h3>
+      <p>${lista.length?'Somente e-mails destes domínios conseguem se cadastrar'
+        :'Qualquer e-mail pode se cadastrar — a conta ainda nasce pendente de liberação'}</p></div></div>
+    <div class="card-b">
+      ${erro?`<div class="tiny muted">Não foi possível carregar (${esc(erro)}).</div>`:`
+      <div class="row" style="gap:8px">
+        ${lista.length?lista.map(d=>`<span class="tag" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px">
+          @${esc(d)}${admin?`<button class="icobtn" data-rmdom="${esc(d)}" title="Remover"
+            style="border:0;width:18px;height:18px;background:none;color:inherit">${ico('x')}</button>`:''}</span>`).join('')
+        :'<span class="tiny muted">Nenhum domínio restrito.</span>'}
+      </div>
+      ${admin?`<div class="row" style="gap:8px;margin-top:14px;flex-wrap:nowrap;max-width:460px">
+        <input class="inp" id="acNovoDom" placeholder="autoglass.com.br">
+        <button class="btn" id="acAddDom" style="flex:0 0 auto">${ico('plus')}Adicionar</button></div>
+      <div class="hint">Digite só o domínio, sem o @. Deixe a lista vazia para aceitar qualquer e-mail,
+      inclusive parceiros e franqueados — a liberação individual continua sendo sua.</div>`:''}`}
+    </div>`;
+  $$('[data-rmdom]').forEach(b=>b.onclick=async()=>{
+    try{await Cloud.removerDominio(b.dataset.rmdom);toast('Domínio removido');desenharDominios()}
+    catch(e){toast('Falha: '+e.message,'err')}});
+  $('#acAddDom')&&($('#acAddDom').onclick=async()=>{
+    let d=$('#acNovoDom').value.trim().toLowerCase().replace(/^@+/,'').replace(/^https?:\/\//,'').replace(/\/.*$/,'');
+    if(!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(d))return toast('Domínio inválido','err');
+    try{await Cloud.addDominio(d);toast('@'+d+' liberado para cadastro');desenharDominios()}
+    catch(e){toast(/duplicate/i.test(e.message)?'Este domínio já está na lista':'Falha: '+e.message,'err')}});
+}
 function garantirConsultor(u){
   if(!u)return;
   const ja=DB.analistas.find(a=>norm(a.email)===norm(u.email||'')||norm(a.nome)===norm(u.nome||''));
@@ -3483,14 +3594,18 @@ addEventListener('click',e=>{if(document.body.classList.contains('drawer-open')&
   shell();
   if(!location.hash)location.hash='#/hub';
 
-  /* ── modo equipe: Supabase configurado no arquivo ou neste navegador ── */
-  if(Cloud.configurado()){
+  /* ── modo equipe ──
+     Sem credenciais e sem escolha anterior, pergunta antes de abrir o sistema. */
+  let conectou=Cloud.configurado();
+  if(!conectou&&!DB.config.modoLocal&&!DB.config.onboarded)conectou=await telaConexao();
+  else if(conectou){
     const carregando=telaCarregando('Conectando ao banco da equipe…');
-    const ok=await Cloud.init();
+    conectou=await Cloud.init();
     carregando.remove();
-    if(!ok){
-      toast('Sem conexão com o Supabase — trabalhando com os dados locais','err');
-    }else{
+    if(!conectou)toast('Sem conexão com o Supabase — trabalhando com os dados locais','err');
+  }
+  if(conectou){
+    {
       if(!Cloud.user)await telaLogin();
       /* conta pendente: entra, mas só vê a tela de espera até um administrador liberar */
       let liberado=false;
