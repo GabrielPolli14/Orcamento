@@ -212,6 +212,8 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--ag);cursor:pointe
 .ac{position:relative}
 .ac-list{position:absolute;top:calc(100% + 5px);left:0;right:0;background:var(--card);border:1px solid var(--line);
   border-radius:var(--r);box-shadow:var(--sh-2);max-height:298px;overflow-y:auto;z-index:60;padding:5px}
+/* menu suspenso fora do fluxo: escapa da rolagem da tabela e de modais */
+.ac-list.flutuante{position:fixed;right:auto;top:auto;z-index:400;box-shadow:var(--sh-3)}
 .ac-i{padding:9px 11px;border-radius:8px;cursor:pointer;display:flex;gap:11px;align-items:center}
 .ac-i:hover,.ac-i.sel{background:var(--ag-50)}
 .ac-i b{font-weight:600;font-size:13px}
@@ -745,6 +747,7 @@ function seedMeta(){
   DB.seq=0;
 }
 /* ───────────────────────── UI PRIMITIVOS ───────────────────────── */
+function fecharSugestoes(){document.querySelectorAll('.ac-list.flutuante').forEach(el=>el.remove())}
 function toast(msg,kind='ok'){
   const el=document.createElement('div');el.className='toast '+kind;
   el.innerHTML=ico(kind==='err'?'alert':'chk')+'<span>'+esc(msg)+'</span>';
@@ -931,13 +934,42 @@ const STATUS=['Rascunho','Gerado','Enviado','Aprovado','Recusado','Cancelado'];
 /* autocomplete genérico */
 function autocomplete(input,search,render,onPick){
   let list=null,items=[],sel=-1;
-  const kill=()=>{list&&list.remove();list=null;items=[];sel=-1};
+  /* A lista é anexada ao body com posição fixa: dentro da tabela de produtos o
+     contêiner tem rolagem horizontal e recortaria o menu se ele fosse filho dela. */
+  const posicionar=()=>{
+    if(!list)return;
+    if(!input.isConnected){kill();return}   /* campo saiu da tela: fecha a lista órfã */
+    const r=input.getBoundingClientRect();
+    const espacoAbaixo=innerHeight-r.bottom, espacoAcima=r.top;
+    const paraCima=espacoAbaixo<220&&espacoAcima>espacoAbaixo;
+    list.style.left=Math.max(8,Math.min(r.left,innerWidth-r.width-8))+'px';
+    list.style.width=Math.max(240,r.width)+'px';
+    if(paraCima){
+      list.style.top='auto';list.style.bottom=(innerHeight-r.top+6)+'px';
+      list.style.maxHeight=Math.min(300,espacoAcima-16)+'px';
+    }else{
+      list.style.bottom='auto';list.style.top=(r.bottom+6)+'px';
+      list.style.maxHeight=Math.min(300,espacoAbaixo-16)+'px';
+    }
+  };
+  const kill=()=>{
+    if(!list)return;
+    removeEventListener('scroll',posicionar,true);removeEventListener('resize',posicionar);
+    list.remove();list=null;items=[];sel=-1;
+  };
   const open=()=>{
+    if(!input.isConnected)return;
     const q=input.value.trim();items=search(q).slice(0,40);
-    if(!list){list=document.createElement('div');list.className='ac-list';input.parentElement.appendChild(list)}
+    if(!list){
+      list=document.createElement('div');list.className='ac-list flutuante';
+      document.body.appendChild(list);
+      addEventListener('scroll',posicionar,true);addEventListener('resize',posicionar);
+      list.addEventListener('mousedown',e=>e.preventDefault());   /* não tira o foco do campo */
+    }
     list.innerHTML=items.length?items.map((it,i)=>`<div class="ac-i ${i===sel?'sel':''}" data-i="${i}">${render(it,q)}</div>`).join('')
       :'<div class="ac-empty">Nada encontrado. Verifique o código ou cadastre em Produtos.</div>';
     list.onclick=e=>{const d=e.target.closest('.ac-i');if(!d)return;onPick(items[+d.dataset.i]);kill()};
+    posicionar();
   };
   input.addEventListener('focus',open);
   input.addEventListener('input',debounce(open,90));
@@ -1013,7 +1045,7 @@ function router(){
   if(!TITLES[ROUTE.k])ROUTE.k='hub';
   $$('#nav .nav').forEach(b=>b.classList.toggle('on',b.dataset.k===ROUTE.k||(ROUTE.k==='novo'&&b.dataset.k==='novo')));
   const[t,s]=TITLES[ROUTE.k];$('#ttl').textContent=t;$('#sub').textContent=s;
-  $('#topActions').innerHTML='';window.scrollTo(0,0);
+  $('#topActions').innerHTML='';fecharSugestoes();window.scrollTo(0,0);
   ({hub:vHub,dash:vDash,novo:vNovo,orc:vOrc,cli:vCli,uni:vUni,prod:vProd,cfg:vCfg})[ROUTE.k](ROUTE.arg);
   /* ao abrir listas, confere se alguém da equipe alterou algo */
   if(['orc','dash','hub'].includes(ROUTE.k)&&typeof Cloud!=='undefined'&&Cloud.pronto())
@@ -1423,6 +1455,7 @@ function vNovo(id){
   renderBuilder();
 }
 function renderBuilder(){
+  fecharSugestoes();
   const c=cliente(B.cliente_id),u=unidade(B.unidade_id),a=analista(B.analista_id||c?.analista_id);
   const remoto=['Serviço móvel','Entrega'].includes(B.tipo_servico);
   calcOrc(B);
@@ -2620,7 +2653,16 @@ const Cloud={
     if(!this.user)return null;
     const {data,error}=await this.sb.from('usuarios').select('*').eq('id',this.user.id).maybeSingle();
     if(error)throw error;
-    return data;
+    if(data)return data;
+    /* login existe mas o cadastro sumiu (removido direto na tabela):
+       recria como pendente para o administrador liberar de novo */
+    const md=this.user.user_metadata||{};
+    const novo={id:this.user.id,email:this.user.email,
+      nome:md.nome||String(this.user.email||'').split('@')[0],
+      telefone:md.telefone||null,whatsapp:md.whatsapp||null,perfil:'analista',ativo:false};
+    const {error:e2}=await this.sb.from('usuarios').insert(novo);
+    if(e2){console.warn('recriar cadastro',e2);return null}
+    return novo;
   },
   async listarDominios(){
     const {data,error}=await this.sb.from('dominios_permitidos').select('*').order('dominio');
@@ -3014,7 +3056,11 @@ function telaLogin(){
           carregando=false;
           const t=e.message||String(e);
           const m=/Invalid login/i.test(t)?'E-mail ou senha incorretos.'
-            :/Email not confirmed/i.test(t)?'Confirme o e-mail antes de entrar.'
+            :/rate limit|too many requests|over_email_send_rate/i.test(t)
+              ?'O Supabase atingiu o limite de e-mails da hora. Peça ao administrador para desligar '
+              +'"Confirm email" em Authentication → Providers → Email, ou tente novamente mais tarde.'
+            :/Email not confirmed/i.test(t)?'Confirme o e-mail antes de entrar. Se o e-mail não chegou, '
+              +'peça ao administrador para confirmar sua conta pelo painel.'
             :/already registered|already exists/i.test(t)?'Já existe um acesso com este e-mail. Use "Esqueci minha senha".'
             :/não liberado para e-mails|nao liberado para e-mails/i.test(t)?t
             :/signups? not allowed|disabled/i.test(t)?'O autocadastro está desligado no Supabase. Peça o acesso a um administrador.'
@@ -3611,7 +3657,7 @@ addEventListener('click',e=>{if(document.body.classList.contains('drawer-open')&
       let liberado=false;
       while(!liberado){
         let cad=null;
-        try{cad=await Cloud.meuCadastro()}catch(e){}
+        try{cad=await Cloud.meuCadastro()}catch(e){console.warn(e)}
         if(cad&&cad.ativo===false)await telaPendente(cad); else liberado=true;
       }
       const c2=telaCarregando('Carregando dados da equipe…');
