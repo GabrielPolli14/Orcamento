@@ -2609,7 +2609,7 @@ if(window.AG_CONFIG&&window.AG_CONFIG.url&&!SUPABASE.url){
 const SB_LIB='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
 const Cloud={
-  on:false, sb:null, user:null, perfil:'', erro:'', ocupado:false,
+  on:false, sb:null, user:null, perfil:'', erro:'', ocupado:false, temProdutos:false,
   sigs:{}, idsOrc:new Set(), canal:null,
   cfg(){return{url:(DB.config?.sbUrl||SUPABASE.url||'').trim(),key:(DB.config?.sbKey||SUPABASE.key||'').trim()}},
   configurado(){const c=this.cfg();return !!(c.url&&c.key)},
@@ -2713,7 +2713,7 @@ const Cloud={
     /* Se o servidor já tem qualquer dado, ele é a fonte da verdade — inclusive para
        listas vazias, senão um cadastro apagado por outra pessoa reaparecia aqui.
        Só quando o banco está totalmente vazio os dados locais são preservados. */
-    const comDados=[ana,cli,uni,emp,prod,orc].some(r=>r.data&&r.data.length);
+    const comDados=[ana,cli,uni,emp,orc].some(r=>r.data&&r.data.length);
     const usar=r=>comDados&&Array.isArray(r.data);
     if(usar(ana))DB.analistas=ana.data.map(r=>({id:r.id,nome:r.nome,telefone:r.telefone||'',
       whatsapp:r.whatsapp||'',email:r.email||'',ativo:r.ativo!==false}));
@@ -2727,7 +2727,11 @@ const Cloud={
       estado:r.estado||'',cep:r.cep||'',telefone:r.telefone||'',ramal:r.ramal||'',email:r.email||'',ativo:r.ativo!==false}));
     if(usar(emp))DB.empresas=emp.data.map(r=>({id:r.id,raiz:r.raiz,razao_social:r.razao_social,
       cnpj:r.cnpj,banco:r.banco||'',agencia:r.agencia||'',conta:r.conta||'',pix:r.pix||''}));
-    if(usar(prod))DB.produtos=prod.data.map(r=>({id:r.id,codigo:r.codigo,descricao:r.descricao,
+    /* A base de peças vem embarcada no arquivo. Só é substituída quando o servidor
+       realmente tem peças cadastradas: uma lista vazia no servidor significa que
+       ninguém enviou o catálogo ainda, não que ele deva ser apagado. */
+    this.temProdutos=!!(prod.data&&prod.data.length);
+    if(prod.data&&prod.data.length)DB.produtos=prod.data.map(r=>({id:r.id,codigo:r.codigo,descricao:r.descricao,
       categoria:r.categoria||'',aplicacao:r.aplicacao||'',valor:Number(r.valor)||0,ativo:r.ativo!==false}));
 
     const porOrc={},hisOrc={};
@@ -2877,6 +2881,7 @@ const Cloud={
       if(error)throw error;
       onProgresso&&onProgresso(Math.min(i+lote,linhas.length),linhas.length);
     }
+    this.temProdutos=linhas.length>0;
     return linhas.length;
   },
   pronto(){return this.on&&this.sb&&this.user},
@@ -3436,7 +3441,11 @@ function vCfg(){
         <p>Enviar e receber dados manualmente quando precisar</p></div></div>
         <div class="card-b grid" style="gap:10px">
           <button class="btn block" id="sbPush" ${Cloud.pronto()?'':'disabled'}>${ico('up')}Enviar cadastros e orçamentos agora</button>
-          <button class="btn block" id="sbProd" ${Cloud.pronto()?'':'disabled'}>${ico('box')}Enviar base de peças (${DB.produtos.length.toLocaleString('pt-BR')} itens)</button>
+          <button class="btn block ${Cloud.pronto()&&!Cloud.temProdutos?'pri':''}" id="sbProd" ${Cloud.pronto()?'':'disabled'}>${ico('box')}Enviar base de peças (${DB.produtos.length.toLocaleString('pt-BR')} itens)</button>
+          ${Cloud.pronto()&&!Cloud.temProdutos?`<div class="row" style="gap:8px;padding:11px;border-radius:10px;background:var(--warn-soft);border:1px solid var(--warn-line)">
+            <span style="color:var(--warn);display:flex">${ico('alert')}</span>
+            <span class="tiny">A base de peças ainda não está no servidor. Cada pessoa está usando a
+            cópia embarcada no arquivo. Envie uma vez para que edições e novos itens valham para a equipe.</span></div>`:''}
           <button class="btn block" id="sbPull" ${Cloud.pronto()?'':'disabled'}>${ico('dl')}Baixar tudo do servidor</button>
           <div id="sbProg" class="tiny muted"></div>
           <hr style="border:0;border-top:1px solid var(--line-2);margin:6px 0">
