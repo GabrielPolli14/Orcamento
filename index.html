@@ -2710,19 +2710,24 @@ const Cloud={
     if(err)throw err.error;
 
     if(cfg.data?.dados)DB.config={...DB.config,...cfg.data.dados,sbUrl:DB.config.sbUrl,sbKey:DB.config.sbKey};
-    if(ana.data?.length)DB.analistas=ana.data.map(r=>({id:r.id,nome:r.nome,telefone:r.telefone||'',
+    /* Se o servidor já tem qualquer dado, ele é a fonte da verdade — inclusive para
+       listas vazias, senão um cadastro apagado por outra pessoa reaparecia aqui.
+       Só quando o banco está totalmente vazio os dados locais são preservados. */
+    const comDados=[ana,cli,uni,emp,prod,orc].some(r=>r.data&&r.data.length);
+    const usar=r=>comDados&&Array.isArray(r.data);
+    if(usar(ana))DB.analistas=ana.data.map(r=>({id:r.id,nome:r.nome,telefone:r.telefone||'',
       whatsapp:r.whatsapp||'',email:r.email||'',ativo:r.ativo!==false}));
-    if(cli.data?.length)DB.clientes=cli.data.map(r=>({id:r.id,razao_social:r.razao_social,
+    if(usar(cli))DB.clientes=cli.data.map(r=>({id:r.id,razao_social:r.razao_social,
       nome_fantasia:r.nome_fantasia||r.razao_social,cnpj:r.cnpj||'',telefone:r.telefone||'',email:r.email||'',
       endereco:r.endereco||'',cidade:r.cidade||'',estado:r.estado||'',cep:r.cep||'',logo:r.logo||'',
       chassi_ativo:!!r.chassi_ativo,chassi_valor:Number(r.chassi_valor)||0,cola_ativo:!!r.cola_ativo,
       cola_valor:Number(r.cola_valor)||0,analista_id:r.analista_id||'',obs_padrao:r.obs_padrao||'',ativo:r.ativo!==false}));
-    if(uni.data?.length)DB.unidades=uni.data.map(r=>({id:r.id,codigo:r.codigo,razao_social:r.razao_social,
+    if(usar(uni))DB.unidades=uni.data.map(r=>({id:r.id,codigo:r.codigo,razao_social:r.razao_social,
       rs_auto:!!r.rs_auto,cnpj:r.cnpj||'',endereco:r.endereco||'',bairro:r.bairro||'',cidade:r.cidade||'',
       estado:r.estado||'',cep:r.cep||'',telefone:r.telefone||'',ramal:r.ramal||'',email:r.email||'',ativo:r.ativo!==false}));
-    if(emp.data?.length)DB.empresas=emp.data.map(r=>({id:r.id,raiz:r.raiz,razao_social:r.razao_social,
+    if(usar(emp))DB.empresas=emp.data.map(r=>({id:r.id,raiz:r.raiz,razao_social:r.razao_social,
       cnpj:r.cnpj,banco:r.banco||'',agencia:r.agencia||'',conta:r.conta||'',pix:r.pix||''}));
-    if(prod.data?.length)DB.produtos=prod.data.map(r=>({id:r.id,codigo:r.codigo,descricao:r.descricao,
+    if(usar(prod))DB.produtos=prod.data.map(r=>({id:r.id,codigo:r.codigo,descricao:r.descricao,
       categoria:r.categoria||'',aplicacao:r.aplicacao||'',valor:Number(r.valor)||0,ativo:r.ativo!==false}));
 
     const porOrc={},hisOrc={};
@@ -2747,6 +2752,7 @@ const Cloud={
     if(maior>=(DB.config.proxNumero||1))DB.config.proxNumero=maior+1;
 
     this.idsOrc=new Set(DB.orcamentos.map(o=>o.id));
+    this.marcarIds();
     this.sigs={};DB.orcamentos.forEach(o=>this.sigs[o.id]=sig(o));
     DB.config.onboarded=true;
     save('meta');save('orc');
@@ -2778,6 +2784,36 @@ const Cloud={
     const res=await Promise.all(tarefas);
     const err=res.find(r=>r.error);
     if(err)throw err.error;
+    await this.apagarRemovidos();
+    this.marcarIds();
+  },
+
+  /* Exclusões de cadastro: compara o que existe agora com o que havia na última
+     sincronização e apaga no servidor o que saiu. Sem isso o registro voltava
+     na próxima carga, porque o upsert só inclui e atualiza. */
+  idsMeta:null,
+  marcarIds(){
+    this.idsMeta={analistas:new Set(DB.analistas.map(x=>x.id)),clientes:new Set(DB.clientes.map(x=>x.id)),
+      unidades:new Set(DB.unidades.map(x=>x.id)),empresas:new Set(DB.empresas.map(x=>x.id))};
+  },
+  async apagarRemovidos(){
+    if(!this.idsMeta)return;                       /* sem carga anterior, nada a comparar */
+    const tabelas=[['clientes',DB.clientes],['unidades',DB.unidades],
+                   ['empresas',DB.empresas],['analistas',DB.analistas]];
+    for(const [nome,arr] of tabelas){
+      const conhecidos=this.idsMeta[nome];if(!conhecidos||!conhecidos.size)continue;
+      const atuais=new Set(arr.map(x=>x.id));
+      const fora=[...conhecidos].filter(id=>!atuais.has(id));
+      if(!fora.length)continue;
+      const {error}=await this.sb.from(nome).delete().in('id',fora);
+      if(error){
+        const e=new Error(/policy|permission/i.test(error.message)
+          ? 'Seu perfil não permite excluir cadastros. Peça a um gestor.'
+          : 'Não foi possível excluir em '+nome+': '+error.message);
+        e.recarregar=true;throw e;
+      }
+      fora.forEach(id=>conhecidos.delete(id));
+    }
   },
 
   /* ── orçamentos: envia só o que mudou desde a última sincronização ── */
@@ -2943,6 +2979,11 @@ async function enviarAgora(){
     const semSessao=/JWT|token|401|not authenticated/i.test(ultimoErro);
     console.warn('sync',e);
     if(semSessao){Cloud.reautenticar();return}
+    if(e.recarregar){                     /* exclusão recusada: volta ao estado do servidor */
+      pendente.meta=false;
+      try{await Cloud.pull();shell();router()}catch(_){}
+      marcaSync('ok');toast(ultimoErro,'err');return;
+    }
     marcaSync('erro');
     if(tentativas===0)toast('Sem gravar na nuvem no momento. As alterações ficam na fila e sobem sozinhas.','err');
     tentativas++;agendarRepeticao();
