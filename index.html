@@ -2558,8 +2558,8 @@ function parseCSV(text,merge){
    são as políticas de RLS aplicadas pelo schema SQL.
    ═══════════════════════════════════════════════════════════════ */
 const SUPABASE={
-  url:'',   // ex.: https://sldajxdoclkojauyadir.supabase.co
-  key:''    // sb_publishable_BVVDIK1pGE6q6OLhZJX6FQ_afODSygX
+  url:'',   // ex.: https://abcdefghijkl.supabase.co
+  key:''    // chave anon / publishable
 };
 const SB_LIB='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
@@ -2574,11 +2574,20 @@ const Cloud={
     if(!url||!key)return false;
     try{
       const m=await import(SB_LIB);
-      this.sb=m.createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,storageKey:'ag-auth'}});
+      /* sessão gravada no dispositivo e token renovado sozinho:
+         quem marcou "manter conectado" não precisa entrar de novo a cada abertura */
+      let guarda=window.localStorage;
+      try{if(localStorage.getItem('ag:sessaoTemporaria')==='1')guarda=window.sessionStorage}catch(e){}
+      this.sb=m.createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,
+        detectSessionInUrl:true,storage:guarda,storageKey:'ag-auth'}});
       const {data}=await this.sb.auth.getSession();
       this.user=data?.session?.user||null;
       this.on=true;this.erro='';
-      this.sb.auth.onAuthStateChange((_e,s)=>{this.user=s?.user||null});
+      this.sb.auth.onAuthStateChange((evento,s)=>{
+        this.user=s?.user||null;
+        if(evento==='SIGNED_OUT'||(!s&&evento==='TOKEN_REFRESHED')){this.parar();this.reautenticar()}
+        if(evento==='TOKEN_REFRESHED')marcaSync('ok');
+      });
       return true;
     }catch(e){this.erro=e.message||String(e);this.on=false;console.warn('Supabase:',e);return false}
   },
@@ -2586,6 +2595,29 @@ const Cloud={
     const {data,error}=await this.sb.auth.signInWithPassword({email,password:senha});
     if(error)throw error;
     this.user=data.user;return data.user;
+  },
+  /* autocadastro: a conta nasce pendente e só passa a funcionar depois da liberação */
+  async cadastrar({nome,email,senha,telefone,whatsapp}){
+    const {data,error}=await this.sb.auth.signUp({email,password:senha,
+      options:{data:{nome,telefone,whatsapp},emailRedirectTo:location.href}});
+    if(error)throw error;
+    if(data.session)this.user=data.user;      /* já entra logado quando não há confirmação de e-mail */
+    return {precisaConfirmar:!data.session,user:data.user};
+  },
+  async meuCadastro(){
+    if(!this.user)return null;
+    const {data,error}=await this.sb.from('usuarios').select('*').eq('id',this.user.id).maybeSingle();
+    if(error)throw error;
+    return data;
+  },
+  async listarUsuarios(){
+    const {data,error}=await this.sb.from('usuarios').select('*').order('created_at');
+    if(error)throw error;
+    return data||[];
+  },
+  async salvarUsuario(id,campos){
+    const {error}=await this.sb.from('usuarios').update(campos).eq('id',id);
+    if(error)throw error;
   },
   async recuperar(email){
     const {error}=await this.sb.auth.resetPasswordForEmail(email,{redirectTo:location.href});
@@ -2745,6 +2777,19 @@ const Cloud={
     return linhas.length;
   },
   pronto(){return this.on&&this.sb&&this.user},
+  sessaoTemporariaAtual(){try{return localStorage.getItem('ag:sessaoTemporaria')==='1'}catch(e){return false}},
+  async reconfigurarGuarda(){       /* troca localStorage por sessionStorage sem recarregar */
+    try{
+      const m=await import(SB_LIB),{url,key}=this.cfg();
+      const guarda=this.sessaoTemporariaAtual()?window.sessionStorage:window.localStorage;
+      this.sb=m.createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,
+        detectSessionInUrl:true,storage:guarda,storageKey:'ag-auth'}});
+      this.sb.auth.onAuthStateChange((evento,s)=>{
+        this.user=s?.user||null;
+        if(evento==='SIGNED_OUT'){this.parar();this.reautenticar()}
+      });
+    }catch(e){console.warn('guarda',e)}
+  },
 
   /* ── recarrega orçamentos quando outro colaborador altera algo ── */
   async refrescar(){
@@ -2770,52 +2815,118 @@ const Cloud={
     }catch(e){console.warn('realtime',e)}
   },
   parar(){try{this.canal&&this.sb.removeChannel(this.canal)}catch(e){}this.canal=null},
+
+  /* sessão caiu (token expirado, senha trocada, acesso revogado): pede login sem perder a tela */
+  reautenticando:false,
+  async reautenticar(){
+    if(this.reautenticando)return;
+    this.reautenticando=true;
+    marcaSync('offline');
+    await telaLogin();
+    this.reautenticando=false;
+    try{await this.pull();this.escutar();shell();router();marcaSync('ok')}catch(e){marcaSync('erro')}
+  },
+  /* volta a funcionar sozinho quando a internet retorna ou a aba é reaberta */
+  vigiar(){
+    addEventListener('online',()=>{toast('Conexão restabelecida — sincronizando');this.recuperarConexao()});
+    addEventListener('offline',()=>marcaSync('offline'));
+    addEventListener('visibilitychange',()=>{if(!document.hidden)this.recuperarConexao()});
+    setInterval(()=>{if(!document.hidden&&navigator.onLine)this.recuperarConexao(true)},60000);
+  },
+  async recuperarConexao(silencioso){
+    if(!this.on||!navigator.onLine)return;
+    try{
+      const {data}=await this.sb.auth.getSession();
+      if(!data?.session){this.reautenticar();return}
+      this.user=data.session.user;
+      if(!this.canal)this.escutar();
+      if(pendencias()){await enviarAgora()}
+      else if(!silencioso&&await this.refrescar()&&['orc','dash','hub'].includes(ROUTE.k))router();
+      else if(silencioso&&await this.refrescar()&&['orc','dash','hub'].includes(ROUTE.k))router();
+    }catch(e){marcaSync('erro')}
+  },
 };
 function sig(o){return JSON.stringify(o)}
 function cfgLimpa(){const c={...DB.config};delete c.sbUrl;delete c.sbKey;delete c.prodDirty;return c}
 
-/* fila de envio: qualquer save local reflete no servidor logo em seguida */
-let filaEnvio=null,ultimoErro='';
+/* ── fila de envio com repetição automática ──
+   Nada se perde por queda de rede: o que falhou continua na fila e é
+   reenviado sozinho a cada 20 s, quando a internet volta ou ao reabrir a aba. */
+let filaEnvio=null,ultimoErro='',pendente={meta:false,orc:false,prod:false},tentativas=0,repetidor=null;
+function pendencias(){return pendente.meta||pendente.orc||pendente.prod}
 function sincronizar(part){
   if(!Cloud.pronto())return;
+  if(part==='meta')pendente.meta=true;
+  if(part==='orc')pendente.orc=true;
+  if(part==='prod'&&DB.config.prodDirty)pendente.prod=true;
   clearTimeout(filaEnvio);
-  filaEnvio=setTimeout(async()=>{
-    marcaSync('enviando');
-    try{
-      if(part==='prod'&&DB.config.prodDirty)await Cloud.pushProdutos();
-      await Cloud.pushMeta();
-      await Cloud.pushOrcs();
-      ultimoErro='';marcaSync('ok');
-    }catch(e){
-      ultimoErro=e.message||String(e);marcaSync('erro');
-      console.warn('sync',e);
-      toast('Não foi possível salvar na nuvem: '+ultimoErro,'err');
-    }
-  },700);
+  filaEnvio=setTimeout(enviarAgora,700);
+}
+async function enviarAgora(){
+  if(!Cloud.pronto()||!pendencias())return;
+  if(!navigator.onLine){marcaSync('offline');agendarRepeticao();return}
+  marcaSync('enviando');
+  try{
+    if(pendente.prod){await Cloud.pushProdutos();pendente.prod=false}
+    if(pendente.meta){await Cloud.pushMeta();pendente.meta=false}
+    if(pendente.orc){await Cloud.pushOrcs();pendente.orc=false}
+    ultimoErro='';tentativas=0;clearTimeout(repetidor);repetidor=null;marcaSync('ok');
+  }catch(e){
+    ultimoErro=e.message||String(e);
+    const semSessao=/JWT|token|401|not authenticated/i.test(ultimoErro);
+    console.warn('sync',e);
+    if(semSessao){Cloud.reautenticar();return}
+    marcaSync('erro');
+    if(tentativas===0)toast('Sem gravar na nuvem no momento. As alterações ficam na fila e sobem sozinhas.','err');
+    tentativas++;agendarRepeticao();
+  }
+}
+function agendarRepeticao(){
+  clearTimeout(repetidor);
+  repetidor=setTimeout(enviarAgora,Math.min(20000*Math.max(1,tentativas),120000));
 }
 function marcaSync(estado){
   const el=document.getElementById('syncDot');if(!el)return;
-  const m={enviando:['var(--warn)','Enviando alterações…'],ok:['var(--ok)','Tudo sincronizado'],
-    erro:['var(--dang)','Falha ao sincronizar — clique para tentar de novo']};
+  const n=pendencias()?' Há alterações na fila.':'';
+  const m={enviando:['var(--warn)','Enviando alterações…'],
+    ok:['var(--ok)','Tudo sincronizado com o banco da equipe'],
+    erro:['var(--dang)','Falha ao sincronizar — clique para tentar agora.'+n],
+    offline:['var(--ink-4)','Sem conexão. O trabalho continua salvo neste dispositivo.'+n]};
   const[cor,txt]=m[estado]||m.ok;
   el.style.color=cor;el.title=txt;
+  el.dataset.estado=estado;
 }
 
 /* ── tela de acesso ── */
 function telaLogin(){
   return new Promise(done=>{
     const ov=document.createElement('div');ov.className='ob';document.body.appendChild(ov);
-    let modo='login',carregando=false,ultimoMail='';
+    let modo='login',carregando=false,ultimoMail='',d={nome:'',tel:'',wa:''};
+    let temp=false;try{temp=localStorage.getItem('ag:sessaoTemporaria')==='1'}catch(e){}
+    const TIT={login:['Entrar no sistema','Use o e-mail e a senha do seu acesso. Os orçamentos ficam no banco da equipe.'],
+      cadastro:['Criar meu acesso','Preencha seus dados. O acesso passa por liberação de um administrador antes do primeiro uso.'],
+      reset:['Recuperar acesso','Informe seu e-mail. Você receberá um link para definir uma nova senha.']};
     function render(msg,tipo){
+      const[tit,lead]=TIT[modo];
       ov.innerHTML=`<div class="ob-card">
         <img src="${DB.config.logo||LOGO_AG}" alt="Autoglass">
-        <h2>${modo==='login'?'Entrar no sistema':'Recuperar acesso'}</h2>
-        <p class="lead">${modo==='login'
-          ? 'Use o e-mail e a senha cadastrados pelo administrador. Os orçamentos ficam no banco da equipe.'
-          : 'Informe seu e-mail. Você receberá um link para definir uma nova senha.'}</p>
+        <h2>${tit}</h2><p class="lead">${lead}</p>
         <div class="ob-fields">
-          <label class="f"><span>E-mail</span><input class="inp" id="lgMail" type="email" autocomplete="username" placeholder="nome@autoglass.com.br"></label>
-          ${modo==='login'?`<label class="f"><span>Senha</span><input class="inp" id="lgSenha" type="password" autocomplete="current-password"></label>`:''}
+          ${modo==='cadastro'?`<label class="f"><span>Nome completo <i>*</i></span>
+            <input class="inp" id="lgNome" value="${esc(d.nome)}" autocomplete="name" placeholder="Como deve aparecer no orçamento"></label>`:''}
+          <label class="f"><span>E-mail ${modo==='cadastro'?'corporativo <i>*</i>':''}</span>
+            <input class="inp" id="lgMail" type="email" autocomplete="username" placeholder="nome@autoglass.com.br"></label>
+          ${modo==='cadastro'?`<div class="grid g2" style="gap:12px">
+            <label class="f"><span>Telefone</span><input class="inp" id="lgTel" value="${esc(d.tel)}" placeholder="(00) 0000-0000"></label>
+            <label class="f"><span>WhatsApp</span><input class="inp" id="lgWa" value="${esc(d.wa)}" placeholder="(00) 00000-0000"></label>
+          </div>`:''}
+          ${modo!=='reset'?`<label class="f"><span>Senha ${modo==='cadastro'?'<i>*</i>':''}</span>
+            <input class="inp" id="lgSenha" type="password" autocomplete="${modo==='cadastro'?'new-password':'current-password'}">
+            ${modo==='cadastro'?'<div class="hint">Mínimo de 6 caracteres.</div>':''}</label>`:''}
+          ${modo==='cadastro'?`<label class="f"><span>Repetir a senha <i>*</i></span>
+            <input class="inp" id="lgSenha2" type="password" autocomplete="new-password"></label>`:''}
+          ${modo==='login'?`<label class="chk ${temp?'':'on'}" id="lgLbl"><input type="checkbox" id="lgManter" ${temp?'':'checked'}>
+            <span><b>Manter conectado neste dispositivo</b><small>Desmarque em computador compartilhado: a sessão acaba ao fechar o navegador</small></span></label>`:''}
           ${msg?`<div class="row" style="gap:8px;padding:11px;border-radius:10px;background:${tipo==='err'?'var(--dang-bg)':'var(--ok-bg)'}">
             <span style="color:${tipo==='err'?'var(--dang)':'var(--ok)'};display:flex">${ico(tipo==='err'?'alert':'chk')}</span>
             <span class="tiny">${esc(msg)}</span></div>`:''}
@@ -2824,37 +2935,103 @@ function telaLogin(){
           <button class="ob-skip" id="lgAlt">${modo==='login'?'Esqueci minha senha':'Voltar para o acesso'}</button>
           <div class="spacer"></div>
           <button class="btn pri" id="lgOk" ${carregando?'disabled':''}>
-            ${carregando?'Aguarde…':(modo==='login'?'Entrar':'Enviar link')}</button>
+            ${carregando?'Aguarde…':modo==='login'?'Entrar':modo==='cadastro'?'Criar acesso':'Enviar link'}</button>
         </div>
-        <div class="tiny muted" style="margin-top:14px">Banco: ${esc(String(Cloud.cfg().url||'').replace('https://','').replace('http://',''))}</div>
+        ${modo==='login'?`<div class="tiny" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2)">
+          Ainda não tem acesso? <a href="#" id="lgNovo">Criar meu acesso</a></div>`:''}
+        <div class="tiny muted" style="margin-top:10px">Banco: ${esc(String(Cloud.cfg().url||'').replace('https://','').replace('http://',''))}</div>
       </div>`;
       const mail=ov.querySelector('#lgMail');
-      try{mail.value=ultimoMail||localStorage.getItem('ag:ultimoEmail')||''}catch(e){mail.value=ultimoMail||''}
-      (modo==='login'&&mail.value?ov.querySelector('#lgSenha'):mail).focus();
-      ov.querySelector('#lgAlt').onclick=()=>{modo=modo==='login'?'reset':'login';render()};
+      try{mail.value=ultimoMail||(modo==='cadastro'?'':localStorage.getItem('ag:ultimoEmail')||'')}catch(e){mail.value=ultimoMail}
+      (modo==='cadastro'?ov.querySelector('#lgNome'):(mail.value&&modo==='login'?ov.querySelector('#lgSenha'):mail)).focus();
+      const tel=ov.querySelector('#lgTel'),wa=ov.querySelector('#lgWa');
+      if(tel)mask(tel,mkTel); if(wa)mask(wa,mkTel);
+      const manter=ov.querySelector('#lgManter');
+      if(manter)manter.onchange=()=>{temp=!manter.checked;ov.querySelector('#lgLbl').classList.toggle('on',manter.checked)};
+      ov.querySelector('#lgNovo')&&(ov.querySelector('#lgNovo').onclick=e=>{e.preventDefault();modo='cadastro';render()});
+      ov.querySelector('#lgAlt').onclick=()=>{guardar();modo=modo==='login'?'reset':'login';render()};
       ov.querySelector('#lgOk').onclick=enviar;
-      ov.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();enviar()}};
+      ov.onkeydown=e=>{if(e.key==='Enter'&&e.target.tagName==='INPUT'){e.preventDefault();enviar()}};
+      function guardar(){
+        const g=id=>ov.querySelector('#'+id)?.value.trim()||'';
+        ultimoMail=g('lgMail');d={nome:g('lgNome'),tel:g('lgTel'),wa:g('lgWa')};
+      }
       async function enviar(){
-        const email=ov.querySelector('#lgMail').value.trim();ultimoMail=email;
-        const senha=ov.querySelector('#lgSenha')?.value||'';   /* lido antes do redesenho */
+        const g=id=>ov.querySelector('#'+id)?.value.trim()||'';
+        const email=g('lgMail');const senha=ov.querySelector('#lgSenha')?.value||'';
+        const senha2=ov.querySelector('#lgSenha2')?.value||'';
+        guardar();
         if(!/.+@.+\..+/.test(email))return render('Informe um e-mail válido','err');
+        if(modo==='cadastro'){
+          if(!d.nome)return render('Informe seu nome completo','err');
+          if(senha.length<6)return render('A senha precisa de pelo menos 6 caracteres','err');
+          if(senha!==senha2)return render('As senhas não conferem','err');
+        }
         if(modo==='login'&&!senha)return render('Informe a senha','err');
         carregando=true;render();
         try{
           if(modo==='reset'){await Cloud.recuperar(email);modo='login';carregando=false;
             return render('Link enviado. Confira sua caixa de entrada.','ok')}
+          if(modo==='cadastro'){
+            const r=await Cloud.cadastrar({nome:d.nome,email,senha,telefone:d.tel,whatsapp:d.wa});
+            carregando=false;
+            if(r.precisaConfirmar){modo='login';
+              return render('Acesso criado. Confirme o e-mail que enviamos e aguarde a liberação de um administrador.','ok')}
+            try{localStorage.setItem('ag:ultimoEmail',email)}catch(e){}
+            ov.remove();done(true);return;
+          }
+          try{localStorage.setItem('ag:sessaoTemporaria',temp?'1':'0')}catch(e){}
+          if(temp!==Cloud.sessaoTemporariaAtual()){await Cloud.reconfigurarGuarda()}
           await Cloud.login(email,senha);
           try{localStorage.setItem('ag:ultimoEmail',email)}catch(e){}
           ov.remove();done(true);
         }catch(e){
           carregando=false;
-          const m=/Invalid login/i.test(e.message)?'E-mail ou senha incorretos.'
-            :/Email not confirmed/i.test(e.message)?'Confirme o e-mail antes de entrar.':e.message;
+          const t=e.message||String(e);
+          const m=/Invalid login/i.test(t)?'E-mail ou senha incorretos.'
+            :/Email not confirmed/i.test(t)?'Confirme o e-mail antes de entrar.'
+            :/already registered|already exists/i.test(t)?'Já existe um acesso com este e-mail. Use "Esqueci minha senha".'
+            :/@autoglass/i.test(t)?'Cadastro permitido apenas para e-mails corporativos @autoglass.com.br.'
+            :/signups? not allowed|disabled/i.test(t)?'O autocadastro está desligado no Supabase. Peça o acesso a um administrador.'
+            :/password/i.test(t)?'Senha recusada: '+t
+            :t;
           render(m,'err');
         }
       }
     }
     render();
+  });
+}
+
+/* conta criada, aguardando liberação de um administrador */
+function telaPendente(cad){
+  return new Promise(done=>{
+    const ov=document.createElement('div');ov.className='ob';document.body.appendChild(ov);
+    ov.innerHTML=`<div class="ob-card">
+      <img src="${DB.config.logo||LOGO_AG}" alt="Autoglass">
+      <h2>Acesso aguardando liberação</h2>
+      <p class="lead">Seu cadastro foi criado e já aparece para os administradores. Assim que for liberado,
+      você entra normalmente e passa a ver os orçamentos da equipe.</p>
+      <div class="ob-fields">
+        <div class="row" style="gap:11px;padding:13px;border-radius:10px;background:var(--surface-2)">
+          <span class="av">${initials(cad?.nome||Cloud.user.email)}</span>
+          <div style="flex:1"><b class="tiny">${esc(cad?.nome||'—')}</b>
+            <div class="tiny muted">${esc(Cloud.user.email)}</div></div>
+          <span class="pill s-rascunho"><i></i>Pendente</span>
+        </div>
+      </div>
+      <div class="ob-nav">
+        <button class="ob-skip" id="pdSair">Sair</button><div class="spacer"></div>
+        <button class="btn pri" id="pdVer">${ico('refresh')}Já fui liberado</button>
+      </div></div>`;
+    ov.querySelector('#pdSair').onclick=()=>Cloud.logout();
+    ov.querySelector('#pdVer').onclick=async()=>{
+      try{
+        const c=await Cloud.meuCadastro();
+        if(c&&c.ativo){ov.remove();done(true)}
+        else toast('Ainda não liberado. Fale com o administrador.','err');
+      }catch(e){toast('Não foi possível verificar agora','err')}
+    };
   });
 }
 </script>
@@ -2984,23 +3161,86 @@ function vCfg(){
     return;
   }
   if(cfgTab==='seg'){
-    const PERFIS=[['Administrador','Acesso total: cadastros, configurações, todos os orçamentos e exclusões.','shield'],
-      ['Gestor','Dashboard consolidado e orçamentos de toda a equipe; sem alterar configurações do sistema.','chart'],
-      ['Analista','Cria e gerencia os próprios orçamentos e os clientes autorizados.','users']];
-    body.innerHTML=`<div class="card"><div class="card-h"><div><h3>Perfis de acesso</h3>
-      <p>Estrutura pronta para autenticação — hoje o sistema roda em sessão única local</p></div></div>
+    const PERFIS=[['administrador','Administrador','Acesso total: cadastros, configurações, todos os orçamentos e liberação de acessos.','shield'],
+      ['gestor','Gestor','Dashboard consolidado e orçamentos de toda a equipe; apaga cadastros, mas não libera acessos.','chart'],
+      ['analista','Analista','Cria e gerencia os próprios orçamentos; não apaga o que é de outra pessoa.','users']];
+    if(!Cloud.pronto()){
+      body.innerHTML=`<div class="card"><div class="card-h"><div><h3>Perfis de acesso</h3>
+        <p>Disponível quando o sistema está conectado ao banco da equipe</p></div></div>
+        <div class="card-b grid" style="gap:12px">
+          ${PERFIS.map(([k,n,d,i])=>`<div class="row" style="gap:14px;padding:14px;border:1px solid var(--line);border-radius:12px;align-items:flex-start">
+            <span style="color:var(--ag);display:flex;margin-top:2px">${ico(i)}</span>
+            <div style="flex:1"><b style="font-size:13.5px">${n}</b><div class="tiny muted">${d}</div></div>
+          </div>`).join('')}
+          <div class="row" style="gap:8px;padding:12px;background:var(--ag-50);border-radius:10px">
+            <span style="color:var(--ag);display:flex">${ico('shield')}</span>
+            <span class="tiny">Sem Supabase configurado o sistema roda em sessão única neste navegador.
+            Configure em <b>Configurações → Nuvem</b> para ter contas, perfis e liberação de acesso.</span></div>
+        </div></div>`;
+      return;
+    }
+    body.innerHTML=`<div class="card"><div class="card-h"><div style="flex:1"><h3>Acessos da equipe</h3>
+      <p>Quem entrou pelo "Criar meu acesso" aparece aqui como pendente até ser liberado</p></div>
+      <button class="btn sm" id="acRefresh">${ico('refresh')}Atualizar</button></div>
+      <div id="acLista"><div class="empty tiny">Carregando…</div></div></div>
+      <div class="card" style="margin-top:16px"><div class="card-h"><div><h3>O que cada perfil faz</h3></div></div>
       <div class="card-b grid" style="gap:12px">
-        ${PERFIS.map(([n,d,i])=>`<div class="row" style="gap:14px;padding:14px;border:1px solid var(--line);border-radius:12px;align-items:flex-start">
+        ${PERFIS.map(([k,n,d,i])=>`<div class="row" style="gap:14px;padding:13px;border:1px solid var(--line);border-radius:12px;align-items:flex-start">
           <span style="color:var(--ag);display:flex;margin-top:2px">${ico(i)}</span>
           <div style="flex:1"><b style="font-size:13.5px">${n}</b><div class="tiny muted">${d}</div></div>
-          ${c.perfil===n?'<span class="pill s-aprovado"><i></i>Perfil atual</span>':`<button class="btn sm" data-p="${n}">Assumir</button>`}
         </div>`).join('')}
-        <div class="row" style="gap:8px;padding:12px;background:var(--ag-50);border-radius:10px">
-          <span style="color:var(--ag);display:flex">${ico('shield')}</span>
-          <span class="tiny">Ao publicar com Supabase Auth, cada usuário recebe nome, e-mail, perfil e permissões,
-          e as políticas de RLS aplicam o recorte por analista automaticamente.</span></div>
       </div></div>`;
-    $$('[data-p]').forEach(b=>b.onclick=()=>{c.perfil=b.dataset.p;save('meta');shell();vCfg();toast('Perfil: '+b.dataset.p)});
+    $('#acRefresh').onclick=()=>vCfg();
+    (async()=>{
+      let lista=[];
+      try{lista=await Cloud.listarUsuarios()}
+      catch(e){$('#acLista').innerHTML=`<div class="empty tiny">Não foi possível listar (${esc(e.message)}).
+        Apenas administradores e gestores enxergam a equipe.</div>`;return}
+      const souAdmin=lista.find(u=>u.id===Cloud.user.id)?.perfil==='administrador';
+      const pend=lista.filter(u=>!u.ativo);
+      $('#acLista').innerHTML=`
+        ${pend.length?`<div class="row" style="margin:16px 20px 0;padding:12px;border-radius:10px;
+          background:var(--warn-soft);border:1px solid var(--warn-line);gap:9px">
+          <span style="color:var(--warn);display:flex">${ico('alert')}</span>
+          <span class="tiny"><b>${pend.length} acesso(s) aguardando liberação.</b>
+          Enquanto pendente, a pessoa entra mas não enxerga nenhum dado.</span></div>`:''}
+        <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>Pessoa</th><th>Contato</th><th style="width:150px">Perfil</th>
+        <th style="width:110px">Situação</th><th style="width:150px">Desde</th></tr></thead>
+        <tbody>${lista.map(u=>`<tr>
+          <td><div class="row" style="gap:9px"><span class="av" style="width:26px;height:26px;flex:0 0 26px;font-size:10px">${initials(u.nome||u.email)}</span>
+            <div><b>${esc(u.nome||'—')}</b>${u.id===Cloud.user.id?'<span class="tag" style="margin-left:6px">você</span>':''}
+            <div class="tiny muted">${esc(u.email)}</div></div></div></td>
+          <td class="tiny">${esc(u.whatsapp||u.telefone||'—')}</td>
+          <td>${souAdmin&&u.id!==Cloud.user.id
+            ?`<select class="inp" data-perfil="${u.id}" style="height:32px;font-size:12.5px">
+                ${PERFIS.map(([k,n])=>`<option value="${k}" ${u.perfil===k?'selected':''}>${n}</option>`).join('')}</select>`
+            :`<span class="tiny">${esc(PERFIS.find(p=>p[0]===u.perfil)?.[1]||u.perfil)}</span>`}</td>
+          <td>${u.ativo?'<span class="pill s-aprovado"><i></i>Liberado</span>':'<span class="pill s-rascunho"><i></i>Pendente</span>'}</td>
+          <td class="tiny muted">${dtBR(u.created_at)}
+            ${souAdmin&&u.id!==Cloud.user.id?`<div><button class="btn sm" data-ativo="${u.id}|${u.ativo?0:1}" style="margin-top:5px">
+              ${u.ativo?'Bloquear':'Liberar acesso'}</button></div>`:''}</td>
+        </tr>`).join('')}</tbody></table></div>
+        ${souAdmin?'':`<div class="row" style="padding:14px 20px;gap:8px"><span class="tiny muted">
+          Somente administradores liberam acessos e trocam perfis.</span></div>`}`;
+      $$('[data-ativo]').forEach(b=>b.onclick=async()=>{
+        const[id,v]=b.dataset.ativo.split('|');const ativar=v==='1';
+        const alvo=lista.find(u=>u.id===id);
+        if(!ativar&&!await confirmar('Bloquear acesso',
+          `${esc(alvo.nome||alvo.email)} deixa de enxergar e gravar qualquer dado, imediatamente. A conta continua existindo.`,'Bloquear'))return;
+        b.disabled=true;
+        try{
+          await Cloud.salvarUsuario(id,{ativo:ativar});
+          if(ativar)garantirConsultor(alvo);
+          toast(ativar?'Acesso liberado para '+(alvo.nome||alvo.email):'Acesso bloqueado');
+          vCfg();
+        }catch(e){toast('Falha: '+e.message,'err');b.disabled=false}
+      });
+      $$('[data-perfil]').forEach(sel=>sel.onchange=async()=>{
+        try{await Cloud.salvarUsuario(sel.dataset.perfil,{perfil:sel.value});toast('Perfil atualizado')}
+        catch(e){toast('Falha: '+e.message,'err');vCfg()}
+      });
+    })();
     return;
   }
   if(cfgTab==='nuvem'){
@@ -3148,6 +3388,20 @@ function vCfg(){
     save('meta');shell();applyTheme();toast('Configurações salvas');vCfg();
   });
 }
+/* ao liberar um acesso, cria o consultor correspondente se ainda não existir */
+function garantirConsultor(u){
+  if(!u)return;
+  const ja=DB.analistas.find(a=>norm(a.email)===norm(u.email||'')||norm(a.nome)===norm(u.nome||''));
+  if(ja){
+    if(!ja.email&&u.email)ja.email=u.email;
+    if(!ja.whatsapp&&u.whatsapp)ja.whatsapp=u.whatsapp;
+    if(!ja.telefone&&u.telefone)ja.telefone=u.telefone;
+  }else{
+    DB.analistas.push({id:uid(),nome:u.nome||u.email,telefone:u.telefone||'',
+      whatsapp:u.whatsapp||'',email:u.email||'',ativo:true});
+  }
+  save('meta');
+}
 function anForm(a){
   const n=!a;a=a?{...a}:{id:uid(),nome:'',telefone:'',whatsapp:'',email:'',ativo:true};
   modal({title:n?'Novo consultor':'Editar consultor',sub:'Dados impressos no rodapé do orçamento',
@@ -3207,6 +3461,11 @@ function avisoArmazenamento(){
 }
 $('#sbHome').onclick=()=>go('hub');
 $('#homeBtn').onclick=()=>go('hub');
+$('#syncDot').onclick=()=>{
+  if(!Cloud.pronto())return toast('Sem sessão ativa no banco','err');
+  if($('#syncDot').dataset.estado==='ok'){Cloud.recuperarConexao();toast('Verificando novidades da equipe')}
+  else{tentativas=0;enviarAgora()}
+};
 $('#themeBtn').onclick=()=>{
   const atual=document.documentElement.dataset.theme==='dark';
   DB.config.tema=atual?'claro':'escuro';save('meta');applyTheme();
@@ -3233,10 +3492,18 @@ addEventListener('click',e=>{if(document.body.classList.contains('drawer-open')&
       toast('Sem conexão com o Supabase — trabalhando com os dados locais','err');
     }else{
       if(!Cloud.user)await telaLogin();
+      /* conta pendente: entra, mas só vê a tela de espera até um administrador liberar */
+      let liberado=false;
+      while(!liberado){
+        let cad=null;
+        try{cad=await Cloud.meuCadastro()}catch(e){}
+        if(cad&&cad.ativo===false)await telaPendente(cad); else liberado=true;
+      }
       const c2=telaCarregando('Carregando dados da equipe…');
       try{await Cloud.pull()}catch(e){toast('Falha ao carregar do servidor: '+e.message,'err')}
       c2.remove();
       Cloud.escutar();
+      Cloud.vigiar();
       shell();
     }
   }
