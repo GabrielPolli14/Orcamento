@@ -357,6 +357,30 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--ag);cursor:pointe
 .pay-c footer{padding:13px 18px;display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:900px){.pay-r button{opacity:1}}
 
+/* ───────── FILTRO MÚLTIPLO ───────── */
+.multi{padding:0;min-width:236px;max-width:320px}
+.multi-h{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line-2);
+  font-size:11.5px;font-weight:600;color:var(--ink-3)}
+.multi-h b{flex:1;color:var(--ink);font-size:12.5px}
+.multi-h button{border:0;background:none;color:var(--ag);font-size:11.5px;font-weight:600;cursor:pointer;padding:2px 4px}
+.multi-h button:hover{text-decoration:underline}
+.multi-l{max-height:264px;overflow-y:auto;padding:5px}
+.multi-l label{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;cursor:pointer;font-size:13px}
+.multi-l label:hover{background:var(--ag-50)}
+.multi-l label span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.multi-l .vazio{padding:12px;text-align:center;color:var(--ink-3);font-size:12px}
+.fbtn{display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 13px;border-radius:var(--r-sm);
+  border:1px solid var(--line);background:var(--card);cursor:pointer;font-size:13.5px;color:var(--ink);
+  max-width:100%;white-space:nowrap}
+.fbtn:hover{border-color:var(--line-h)}
+.fbtn.on{border-color:var(--ag);background:var(--ag-50);color:var(--ag-700);font-weight:500}
+.fbtn svg{width:14px;height:14px;stroke-width:2;color:var(--ink-4)}
+.fbtn.on svg{color:var(--ag)}
+.fbtn .qtd{background:var(--ag);color:#fff;border-radius:99px;font-size:10.5px;font-weight:700;
+  padding:1px 6px;min-width:17px;text-align:center}
+[data-theme="dark"] .fbtn .qtd{color:#0d1118}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+
 /* ───────── CONFIGURAÇÃO INICIAL ───────── */
 .ob{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:20px;overflow-y:auto;
   background:radial-gradient(1200px 600px at 50% -10%,var(--ag-50),var(--bg) 62%)}
@@ -531,7 +555,28 @@ const dtBR=iso=>{if(!iso)return'';const d=new Date(iso);return d.toLocaleDateStr
 const addDays=(d,n)=>{const x=new Date(d+'T12:00');x.setDate(x.getDate()+n);return x.toISOString().slice(0,10)};
 const norm=s=>String(s??'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const initials=s=>String(s||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase();
-const dl=(blob,name)=>{const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),4000)};
+/* Salvar arquivo: quando o navegador suporta, abre a janela de pastas do sistema
+   para escolher onde gravar. Caso contrário, cai no download padrão. */
+const TIPOS={pdf:['application/pdf',['.pdf']],zip:['application/zip',['.zip']],
+  json:['application/json',['.json']],csv:['text/csv',['.csv']]};
+async function dl(blob,name){
+  const ext=(name.split('.').pop()||'').toLowerCase();
+  if(DB.config?.escolherPasta!==false&&window.showSaveFilePicker){
+    try{
+      const t=TIPOS[ext];
+      const h=await window.showSaveFilePicker({suggestedName:name,
+        types:t?[{description:ext.toUpperCase(),accept:{[t[0]]:t[1]}}]:[]});
+      const w=await h.createWritable();await w.write(blob);await w.close();
+      toast('Salvo em '+(h.name||name));return true;
+    }catch(e){
+      if(e&&e.name==='AbortError')return false;      /* usuário cancelou */
+      console.warn('showSaveFilePicker',e);
+    }
+  }
+  const u=URL.createObjectURL(blob);const a=document.createElement('a');
+  a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),4000);
+  return true;
+}
 const mkCNPJ=v=>String(v||'').replace(/\D/g,'').slice(0,14).replace(/^(\d{2})(\d)/,'$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3').replace(/\.(\d{3})(\d)/,'.$1/$2').replace(/(\d{4})(\d)/,'$1-$2');
 const mkTel=v=>{const d=String(v||'').replace(/\D/g,'').slice(0,11);return d.length<=10?d.replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{4})(\d)/,'$1-$2'):d.replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2')};
 const mkCEP=v=>String(v||'').replace(/\D/g,'').slice(0,8).replace(/^(\d{5})(\d)/,'$1-$2');
@@ -644,9 +689,10 @@ const DEFCFG={
   mailRemetente:'comercial@autoglass.com.br',mailNome:'Autoglass · Comercial Frotas',
   mailAssunto:'Orçamento Autoglass — {numero}',
   mailCorpo:'Olá,\n\nSegue em anexo o orçamento {numero} referente a {identificacao}.\n\nValor total: {total}\nValidade: {validade} dias.\n\nQualquer dúvida, estou à disposição.\n\nAtenciosamente,\n{consultor}',
+  waMensagem:'Olá! Segue o orçamento *{numero}* referente a {identificacao}.\n\nValor total: *{total}*\nValidade: {validade} dias.\n\nQualquer dúvida, estou à disposição.\n{consultor} — Autoglass',
   mailApi:'',placaApi:'',placaToken:'',
   urlPublica:'https://orcamentos.autoglass.com.br/q/',
-  qrcode:true,usuario:'',perfil:'Administrador'
+  qrcode:true,escolherPasta:true,usuario:'',perfil:'Administrador'
 };
 async function boot(){
   await Store.init();
@@ -931,6 +977,43 @@ function onboarding(){
 function statusPill(s){return `<span class="pill s-${s.toLowerCase()}"><i></i>${s}</span>`}
 const STATUS=['Rascunho','Gerado','Enviado','Aprovado','Recusado','Cancelado'];
 
+
+/* ── filtro de seleção múltipla ──
+   O botão mostra o rótulo e a quantidade escolhida; o menu abre com caixas de
+   seleção e só aplica ao fechar, para permitir marcar vários de uma vez.       */
+function multiFiltro(btn,titulo,opcoes,sel,aoAplicar){
+  $$('.menu').forEach(m=>m.remove());
+  const m=document.createElement('div');m.className='menu multi';
+  const marcados=new Set(sel);
+  m.innerHTML=`<div class="multi-h"><b>${esc(titulo)}</b>
+      <button data-all>Todos</button><button data-none>Limpar</button></div>
+    <div class="multi-l">${opcoes.length?opcoes.map(o=>`<label><input type="checkbox" value="${esc(o.v)}"
+      ${marcados.has(o.v)?'checked':''}><span>${esc(o.t)}</span></label>`).join('')
+      :'<div class="vazio">Nada para filtrar</div>'}</div>`;
+  document.body.appendChild(m);
+  const r=btn.getBoundingClientRect();
+  m.style.top=Math.min(r.bottom+6,innerHeight-m.offsetHeight-12)+'px';
+  m.style.left=Math.max(10,Math.min(r.left,innerWidth-m.offsetWidth-12))+'px';
+  const marcar=v=>$$('input',m).forEach(i=>i.checked=v);
+  m.querySelector('[data-all]').onclick=()=>{marcar(true);opcoes.forEach(o=>marcados.add(o.v))};
+  m.querySelector('[data-none]').onclick=()=>{marcar(false);marcados.clear()};
+  m.addEventListener('change',e=>{
+    const i=e.target;if(i.type!=='checkbox')return;
+    i.checked?marcados.add(i.value):marcados.delete(i.value);
+  });
+  const fechar=()=>{m.remove();document.removeEventListener('click',fora);aoAplicar([...marcados])};
+  const fora=e=>{if(!m.contains(e.target)&&e.target!==btn&&!btn.contains(e.target))fechar()};
+  setTimeout(()=>document.addEventListener('click',fora),0);
+  document.addEventListener('keydown',function k(e){if(e.key==='Escape'){document.removeEventListener('keydown',k);fechar()}});
+}
+function botaoFiltro(id,rotulo,sel,opcoes){
+  const n=sel.length;
+  const txt=n===1?(opcoes.find(o=>o.v===sel[0])?.t||rotulo):rotulo;
+  return `<button class="fbtn ${n?'on':''}" data-multi="${id}" title="${esc(rotulo)}">
+    ${ico('fltr')}<span style="overflow:hidden;text-overflow:ellipsis">${esc(txt)}</span>
+    ${n>1?`<span class="qtd">${n}</span>`:''}</button>`;
+}
+
 /* autocomplete genérico */
 function autocomplete(input,search,render,onPick){
   let list=null,items=[],sel=-1;
@@ -1055,6 +1138,8 @@ addEventListener('hashchange',router);
 
 /* ───────────────────────── HELPERS DE DOMÍNIO ───────────────────────── */
 const cliente=id=>DB.clientes.find(c=>c.id===id);
+const grupos=()=>[...new Set(DB.clientes.map(c=>(c.grupo||'').trim()).filter(Boolean))].sort();
+const grupoDoOrc=o=>cliente(o.cliente_id)?.grupo||'';
 const analista=id=>DB.analistas.find(a=>a.id===id);
 const unidade=id=>DB.unidades.find(u=>u.id===id);
 const orc=id=>DB.orcamentos.find(o=>o.id===id);
@@ -1139,7 +1224,7 @@ function vHub(){
 }
 
 /* ───────────────────────── DASHBOARD ───────────────────────── */
-let dashF={de:'',ate:'',cli:'',uni:'',an:'',st:''};
+let dashF={de:'',ate:'',cli:[],gr:[],uni:[],an:[],st:[]};
 function vDash(){
   const v=$('#view');
   $('#topActions').innerHTML=`<button class="btn pri" id="qNew">${ico('plus')}Novo orçamento</button>`;
@@ -1152,9 +1237,10 @@ function vDash(){
     return;
   }
   const all=DB.orcamentos;
+  const inc=(arr,v)=>!arr.length||arr.includes(v);
   const f=all.filter(o=>(!dashF.de||o.data>=dashF.de)&&(!dashF.ate||o.data<=dashF.ate)
-    &&(!dashF.cli||o.cliente_id===dashF.cli)&&(!dashF.uni||o.unidade_id===dashF.uni)
-    &&(!dashF.an||o.analista_id===dashF.an)&&(!dashF.st||o.status===dashF.st));
+    &&inc(dashF.cli,o.cliente_id)&&inc(dashF.gr,cliente(o.cliente_id)?.grupo||'')
+    &&inc(dashF.uni,o.unidade_id)&&inc(dashF.an,o.analista_id)&&inc(dashF.st,o.status));
   const mes=new Date().toISOString().slice(0,7);
   const K={
     tot:f.length,
@@ -1170,18 +1256,11 @@ function vDash(){
 
   v.innerHTML=`
   <div class="card pad" style="margin-bottom:16px">
-    <div class="row" style="gap:10px">
-      <div style="flex:1;min-width:130px"><label class="f"><span>De</span><input type="date" class="inp" id="fDe" value="${dashF.de}"></label></div>
-      <div style="flex:1;min-width:130px"><label class="f"><span>Até</span><input type="date" class="inp" id="fAte" value="${dashF.ate}"></label></div>
-      <div style="flex:1.4;min-width:160px"><label class="f"><span>Cliente</span><select class="inp" id="fCli"><option value="">Todos</option>
-        ${DB.clientes.map(c=>`<option value="${c.id}" ${dashF.cli===c.id?'selected':''}>${esc(c.nome_fantasia)}</option>`).join('')}</select></label></div>
-      <div style="flex:1;min-width:140px"><label class="f"><span>Unidade</span><select class="inp" id="fUni"><option value="">Todas</option>
-        ${DB.unidades.map(u=>`<option value="${u.id}" ${dashF.uni===u.id?'selected':''}>${esc(u.codigo)} · ${esc(u.cidade)}</option>`).join('')}</select></label></div>
-      <div style="flex:1.2;min-width:150px"><label class="f"><span>Analista</span><select class="inp" id="fAn"><option value="">Todos</option>
-        ${DB.analistas.map(a=>`<option value="${a.id}" ${dashF.an===a.id?'selected':''}>${esc(a.nome)}</option>`).join('')}</select></label></div>
-      <div style="flex:1;min-width:130px"><label class="f"><span>Status</span><select class="inp" id="fSt"><option value="">Todos</option>
-        ${STATUS.map(s=>`<option ${dashF.st===s?'selected':''}>${s}</option>`).join('')}</select></label></div>
-      <button class="btn" id="fClr" style="margin-top:22px">${ico('refresh')}Limpar</button>
+    <div class="fgrid">
+      <label class="f" style="margin:0"><input type="date" class="inp" data-df="de" value="${dashF.de}" title="A partir de"></label>
+      <label class="f" style="margin:0"><input type="date" class="inp" data-df="ate" value="${dashF.ate}" title="Até"></label>
+      ${['cli','gr','uni','an','st'].map(k=>botaoFiltro(k,ROT[k],dashF[k],OPC[k]())).join('')}
+      <button class="btn" id="fClr">${ico('refresh')}Limpar</button>
     </div>
   </div>
 
@@ -1225,9 +1304,12 @@ function vDash(){
       </tbody></table></div></div>
   </div>`;
 
-  const bind=(id,k)=>{const el=$('#'+id);el.onchange=()=>{dashF[k]=el.value;vDash()}};
-  bind('fDe','de');bind('fAte','ate');bind('fCli','cli');bind('fUni','uni');bind('fAn','an');bind('fSt','st');
-  $('#fClr').onclick=()=>{dashF={de:'',ate:'',cli:'',uni:'',an:'',st:''};vDash()};
+  $$('[data-df]').forEach(el=>el.onchange=()=>{dashF[el.dataset.df]=el.value;vDash()});
+  $$('#view [data-multi]').forEach(b=>b.onclick=e=>{
+    e.stopPropagation();const k=b.dataset.multi;
+    multiFiltro(b,ROT[k],OPC[k](),dashF[k],vals=>{dashF[k]=vals;vDash()});
+  });
+  $('#fClr').onclick=()=>{dashF={de:'',ate:'',cli:[],gr:[],uni:[],an:[],st:[]};vDash()};
   drawEvo($('#chEvo'),f);drawRank($('#chCli'),f);drawStatus($('#chSt'),f);
 }
 function drawEvo(el,f){
@@ -1275,15 +1357,27 @@ function drawStatus(el,f){
 }
 
 /* ───────────────────────── ORÇAMENTOS ───────────────────────── */
-let oF={q:'',cli:'',an:'',uni:'',st:'',ts:'',de:'',ate:''},sel=new Set();
+let oF={q:'',cli:[],gr:[],an:[],uni:[],st:[],ts:[],de:'',ate:''},sel=new Set();
+const OPC={
+  cli:()=>DB.clientes.map(c=>({v:c.id,t:c.nome_fantasia||c.razao_social})),
+  gr:()=>grupos().map(g=>({v:g,t:g})),
+  an:()=>DB.analistas.map(a=>({v:a.id,t:a.nome})),
+  uni:()=>DB.unidades.map(u=>({v:u.id,t:u.codigo+' · '+u.cidade})),
+  st:()=>STATUS.map(s=>({v:s,t:s})),
+  ts:()=>['Serviço na unidade','Serviço móvel','Entrega','Outro'].map(s=>({v:s,t:s})),
+};
+const ROT={cli:'Cliente',gr:'Grupo',an:'Consultor',uni:'Unidade',st:'Status',ts:'Tipo de serviço'};
+const nFiltros=f=>Object.keys(ROT).reduce((n,k)=>n+(f[k]?.length?1:0),0)+(f.de?1:0)+(f.ate?1:0);
 function vOrc(){
   const v=$('#view');
   $('#topActions').innerHTML=`<button class="btn pri" onclick="go('novo')">${ico('plus')}Novo orçamento</button>`;
+  const inc=(arr,v)=>!arr.length||arr.includes(v);
   const list=DB.orcamentos.filter(o=>{
     const c=cliente(o.cliente_id);
-    const hay=norm([o.numero,o.ident_valor,c?.razao_social,c?.nome_fantasia,o.veiculo,o.itens.map(i=>i.codigo+' '+i.descricao).join(' ')].join(' '));
-    return (!oF.q||hay.includes(norm(oF.q)))&&(!oF.cli||o.cliente_id===oF.cli)&&(!oF.an||o.analista_id===oF.an)
-      &&(!oF.uni||o.unidade_id===oF.uni)&&(!oF.st||o.status===oF.st)&&(!oF.ts||o.tipo_servico===oF.ts)
+    const hay=norm([o.numero,o.ident_valor,c?.razao_social,c?.nome_fantasia,c?.grupo,o.veiculo,
+      o.itens.map(i=>i.codigo+' '+i.descricao).join(' ')].join(' '));
+    return (!oF.q||hay.includes(norm(oF.q)))&&inc(oF.cli,o.cliente_id)&&inc(oF.gr,c?.grupo||'')
+      &&inc(oF.an,o.analista_id)&&inc(oF.uni,o.unidade_id)&&inc(oF.st,o.status)&&inc(oF.ts,o.tipo_servico)
       &&(!oF.de||o.data>=oF.de)&&(!oF.ate||o.data<=oF.ate);
   }).sort((a,b)=>b.created_at.localeCompare(a.created_at));
 
@@ -1294,21 +1388,20 @@ function vOrc(){
         <span style="position:absolute;left:12px;top:11px;color:var(--ink-4);display:flex">${ico('srch')}</span>
         <input class="inp" id="oq" placeholder="Buscar por número, placa, OS, cliente ou produto…" value="${esc(oF.q)}" style="padding-left:38px">
       </div>
-      <button class="btn" id="oFil">${ico('fltr')}Filtros${Object.entries(oF).filter(([k,x])=>k!=='q'&&x).length?` <span class="tag">${Object.entries(oF).filter(([k,x])=>k!=='q'&&x).length}</span>`:''}</button>
+      <button class="btn" id="oFil">${ico('fltr')}Filtros${nFiltros(oF)?` <span class="tag">${nFiltros(oF)}</span>`:''}</button>
       <div class="spacer"></div>
       <span class="muted tiny">${list.length} de ${DB.orcamentos.length}</span>
     </div>
     <div id="oFilBox" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid var(--line-2)">
-      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(155px,1fr))">
-        <label class="f"><span>Cliente</span><select class="inp" data-f="cli"><option value="">Todos</option>${DB.clientes.map(c=>`<option value="${c.id}" ${oF.cli===c.id?'selected':''}>${esc(c.nome_fantasia)}</option>`).join('')}</select></label>
-        <label class="f"><span>Analista</span><select class="inp" data-f="an"><option value="">Todos</option>${DB.analistas.map(a=>`<option value="${a.id}" ${oF.an===a.id?'selected':''}>${esc(a.nome)}</option>`).join('')}</select></label>
-        <label class="f"><span>Unidade</span><select class="inp" data-f="uni"><option value="">Todas</option>${DB.unidades.map(u=>`<option value="${u.id}" ${oF.uni===u.id?'selected':''}>${esc(u.codigo)} · ${esc(u.cidade)}</option>`).join('')}</select></label>
-        <label class="f"><span>Status</span><select class="inp" data-f="st"><option value="">Todos</option>${STATUS.map(s=>`<option ${oF.st===s?'selected':''}>${s}</option>`).join('')}</select></label>
-        <label class="f"><span>Tipo de serviço</span><select class="inp" data-f="ts"><option value="">Todos</option>${['Serviço na unidade','Serviço móvel','Entrega','Outro'].map(s=>`<option ${oF.ts===s?'selected':''}>${s}</option>`).join('')}</select></label>
-        <label class="f"><span>De</span><input type="date" class="inp" data-f="de" value="${oF.de}"></label>
-        <label class="f"><span>Até</span><input type="date" class="inp" data-f="ate" value="${oF.ate}"></label>
+      <div class="fgrid">
+        ${Object.keys(ROT).map(k=>botaoFiltro(k,ROT[k],oF[k],OPC[k]())).join('')}
+        <label class="f" style="margin:0"><input type="date" class="inp" data-f="de" value="${oF.de}" title="A partir de"></label>
+        <label class="f" style="margin:0"><input type="date" class="inp" data-f="ate" value="${oF.ate}" title="Até"></label>
       </div>
-      <div class="row" style="margin-top:12px"><button class="btn sm" id="oClr">${ico('refresh')}Limpar filtros</button></div>
+      <div class="row" style="margin-top:12px;gap:10px">
+        <button class="btn sm" id="oClr">${ico('refresh')}Limpar filtros</button>
+        <span class="tiny muted">Cada filtro aceita mais de uma opção ao mesmo tempo.</span>
+      </div>
     </div>
   </div>
   <div class="card">
@@ -1337,9 +1430,13 @@ function vOrc(){
 
   const q=$('#oq');q.oninput=debounce(()=>{oF.q=q.value;const p=q.selectionStart;vOrc();const n=$('#oq');n.focus();n.selectionStart=n.selectionEnd=p},260);
   $('#oFil').onclick=()=>{const b=$('#oFilBox');b.style.display=b.style.display==='none'?'block':'none'};
-  if(Object.entries(oF).some(([k,x])=>k!=='q'&&x))$('#oFilBox').style.display='block';
+  if(nFiltros(oF))$('#oFilBox').style.display='block';
   $$('#oFilBox [data-f]').forEach(el=>el.onchange=()=>{oF[el.dataset.f]=el.value;sel.clear();vOrc()});
-  $('#oClr')&&($('#oClr').onclick=()=>{oF={q:oF.q,cli:'',an:'',uni:'',st:'',ts:'',de:'',ate:''};vOrc()});
+  $$('#oFilBox [data-multi]').forEach(b=>b.onclick=e=>{
+    e.stopPropagation();const k=b.dataset.multi;
+    multiFiltro(b,ROT[k],OPC[k](),oF[k],vals=>{oF[k]=vals;sel.clear();vOrc()});
+  });
+  $('#oClr')&&($('#oClr').onclick=()=>{oF={q:oF.q,cli:[],gr:[],an:[],uni:[],st:[],ts:[],de:'',ate:''};vOrc()});
   const ckAll=$('#ckAll');
   if(ckAll){ckAll.checked=list.length&&list.every(o=>sel.has(o.id));
     ckAll.onchange=()=>{list.forEach(o=>ckAll.checked?sel.add(o.id):sel.delete(o.id));vOrc()}}
@@ -1354,13 +1451,15 @@ function bulk(list){
   b.innerHTML=`<div class="bulk"><b>${sel.size} selecionado${sel.size>1?'s':''}</b>
     <div class="spacer"></div>
     <button class="btn sm" data-a="pdf">${ico('dl')}Baixar PDFs</button>
-    <button class="btn sm" data-a="mail">${ico('mail')}Enviar por e-mail</button>
+    <button class="btn sm" data-a="mail">${ico('mail')}E-mail</button>
+    <button class="btn sm" data-a="wa">${ico('wa')}WhatsApp</button>
     <button class="btn sm" data-a="st">${ico('tag')}Alterar status</button>
     <button class="btn sm" data-a="del">${ico('trash')}Excluir</button>
     <button class="btn sm" data-a="clr">${ico('x')}Limpar</button></div>`;
   b.querySelector('[data-a="clr"]').onclick=()=>{sel.clear();vOrc()};
   b.querySelector('[data-a="pdf"]').onclick=()=>baixarLote([...sel]);
   b.querySelector('[data-a="mail"]').onclick=()=>mailModal([...sel]);
+  b.querySelector('[data-a="wa"]').onclick=()=>waModal([...sel]);
   b.querySelector('[data-a="st"]').onclick=e=>popMenu(e.currentTarget,STATUS.map(s=>({k:s,label:s,icon:'tag',
     fn:()=>{[...sel].forEach(id=>{const o=orc(id);if(o.status!==s){o.status=s;hist(o,'Status alterado para "'+s+'"')}});save('orc');toast(sel.size+' orçamento(s) atualizados');vOrc()}})));
   b.querySelector('[data-a="del"]').onclick=async()=>{
@@ -1374,6 +1473,7 @@ function rowMenu(btn,id){
     {k:'pdf',label:'Gerar e baixar PDF',icon:'dl',fn:()=>gerarPDF(o,true)},
     {k:'prev',label:'Pré-visualizar',icon:'eye',fn:()=>previewPDF(o)},
     {k:'mail',label:'Enviar por e-mail',icon:'mail',fn:()=>mailModal([id])},
+    {k:'wa',label:'Enviar por WhatsApp',icon:'wa',fn:()=>waModal([id])},
     '-',
     {k:'dup',label:'Duplicar orçamento',icon:'copy',fn:()=>duplicar(o)},
     {k:'ver',label:'Criar nova versão',icon:'layers',fn:()=>novaVersao(o)},
@@ -1514,9 +1614,9 @@ function renderBuilder(){
       </div></section>
 
     <!-- 3 · ATENDIMENTO -->
-    <section class="step"><div class="step-h"><div class="step-n ${u?'done':''}">3</div><h3>Local do atendimento</h3></div>
+    <section class="step"><div class="step-h"><div class="step-n ${u?'done':''}">3</div><h3>Faturamento e atendimento</h3></div>
       <div class="step-b">
-        <div class="ac"><label class="f"><span>Unidade Autoglass <i>*</i></span>
+        <div class="ac"><label class="f"><span>Unidade de faturamento <i>*</i></span>
           <input class="inp" id="iUni" placeholder="Buscar por código ou cidade…" value="${u?esc(u.codigo+' · '+u.razao_social):''}"></label></div>
         ${u?`<div class="tiny muted" style="margin-top:8px;line-height:1.6">
           ${esc(u.razao_social)}${u.cnpj?' · CNPJ '+esc(u.cnpj):''}<br>
@@ -1613,8 +1713,9 @@ function renderBuilder(){
         <button class="btn block" id="bSave">${ico('save')}Salvar ${B.novo?'orçamento':'alterações'}</button>
         ${!B.novo?`<div class="row" style="gap:8px">
           <button class="btn sm" style="flex:1" id="bMail">${ico('mail')}E-mail</button>
-          <button class="btn sm" style="flex:1" id="bHist">${ico('clock')}Histórico</button>
-        </div>`:''}
+          <button class="btn sm" style="flex:1" id="bWa">${ico('wa')}WhatsApp</button>
+        </div>
+        <button class="btn sm block" id="bHist">${ico('clock')}Histórico</button>`:''}
       </div>
       ${!B.novo?`<div class="row" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line-2);gap:8px">
         <span class="tiny muted">Status</span><div class="spacer"></div>
@@ -1719,6 +1820,7 @@ function bindBuilder(){
   $('#bSave').onclick=()=>{if(persist())toast('Orçamento salvo · '+B.numero)};
   $('#bRev').onclick=revisar;
   $('#bMail')&&($('#bMail').onclick=()=>{if(persist(true))mailModal([B.id])});
+  $('#bWa')&&($('#bWa').onclick=()=>{if(persist(true))waModal([B.id])});
   $('#bHist')&&($('#bHist').onclick=()=>histModal(B));
 }
 function softTotals(){
@@ -1861,10 +1963,17 @@ function imgSize(dataUrl){ // dimensões reais via cache sincrono
 }
 const IMGCACHE={};
 function preload(urls){
+  /* com limite de tempo: se o navegador não disparar load nem error,
+     a geração do PDF segue com a proporção padrão em vez de travar */
   return Promise.all(urls.filter(Boolean).map(u=>new Promise(res=>{
     if(IMGCACHE[u])return res();
-    const im=new Image();im.onload=()=>{IMGCACHE[u]={w:im.naturalWidth,h:im.naturalHeight};res()};
-    im.onerror=()=>{IMGCACHE[u]={w:100,h:40};res()};im.src=u;})));
+    let pronto=false;
+    const fim=(w,h)=>{if(pronto)return;pronto=true;IMGCACHE[u]={w,h};res()};
+    const im=new Image();
+    im.onload=()=>fim(im.naturalWidth||100,im.naturalHeight||40);
+    im.onerror=()=>fim(100,40);
+    setTimeout(()=>fim(100,40),3000);
+    im.src=u;})));
 }
 async function buildPDF(o){
   const c=cliente(o.cliente_id)||{},u=unidade(o.unidade_id)||{},a=analista(o.analista_id||c.analista_id)||{},cfg=DB.config;
@@ -1939,7 +2048,7 @@ async function buildPDF(o){
   y+=38;
 
   /* ── local do serviço ── */
-  label('Local do serviço',M,y);
+  label('Local do serviço e faturamento',M,y);
   y+=5.5;
   txt(o.tipo_servico,M,y,{size:9.5,style:'bold'});
   y+=4.6;
@@ -1953,7 +2062,9 @@ async function buildPDF(o){
     loc=[[e.logradouro,e.numero].filter(Boolean).join(', ')+(e.compl?' — '+e.compl:''),
       [e.bairro,[e.cidade,e.uf].filter(Boolean).join('/')].filter(Boolean).join('  ·  '),
       e.cep?'CEP '+e.cep:'',
-      'Unidade responsável: '+[u.codigo,u.razao_social,u.telefone?'Tel. '+u.telefone+(u.ramal?' ramal '+u.ramal:''):''].filter(Boolean).join('  ·  ')];
+      '',
+      'Unidade de faturamento: '+[u.codigo,u.razao_social].filter(Boolean).join(' — '),
+      [u.cnpj?'CNPJ '+u.cnpj:'',u.telefone?'Tel. '+u.telefone+(u.ramal?' ramal '+u.ramal:''):''].filter(Boolean).join('  ·  ')];
   }
   loc.filter(Boolean).forEach(l=>{y+=txt(l,M,y,{size:8,color:INK2,max:CW})});
   y+=8;
@@ -2043,7 +2154,8 @@ async function gerarPDF(o,download){
     const d=await buildPDF(o);
     const nome=`${o.numero}${o.versao>1?'-v'+o.versao:''}_${(cliente(o.cliente_id)?.nome_fantasia||'cliente').replace(/[^\w]+/g,'-').slice(0,24)}.pdf`;
     if(download){
-      d.save(nome);
+      const ok=await dl(d.output('blob'),nome);
+      if(!ok)return {doc:d,nome,blob:d.output('blob')};
       const t=orc(o.id);
       if(t){if(t.status==='Rascunho')t.status='Gerado';hist(t,'PDF gerado');save('orc');
         if(B&&B.id===t.id){B.status=t.status;B.hist=t.hist}}
@@ -2078,6 +2190,57 @@ async function baixarLote(ids){
     toast(ids.length+' PDFs baixados em .zip');vOrc();
   }catch(e){toast('Falha ao compactar: '+e.message,'err')}
 }
+
+/* ═══════════════════ WHATSAPP ═══════════════════
+   O WhatsApp Web não aceita anexo por link: o fluxo é abrir a conversa com a
+   mensagem pronta e anexar o PDF, que o sistema salva no mesmo momento.       */
+const soDigitos=v=>String(v||'').replace(/\D/g,'');
+function telefoneWA(v){
+  let d=soDigitos(v);
+  if(!d)return '';
+  if(d.length<=11)d='55'+d;                 /* números brasileiros sem o país */
+  return d;
+}
+function waModal(ids){
+  const os=ids.map(orc).filter(Boolean);if(!os.length)return;
+  const cfg=DB.config,first=os[0],c=cliente(first.cliente_id)||{},a=analista(first.analista_id||c.analista_id)||{};
+  const msg=os.length>1
+    ? `Olá! Seguem os orçamentos:\n\n${os.map(o=>`• *${o.numero}* — ${identLabel(o)} — ${money(o.total)}`).join('\n')}\n\nTotal: *${money(os.reduce((s,o)=>s+o.total,0))}*\nValidade: ${first.validade_dias} dias.\n\n${a.nome||cfg.usuario||''} — Autoglass`
+    : tpl(cfg.waMensagem||DEFCFG.waMensagem,first);
+  modal({title:'Enviar por WhatsApp',sub:os.map(o=>o.numero).join(', '),wide:'wide',
+    body:`<div class="grid" style="gap:14px">
+      <label class="f"><span>Número com DDD <i>*</i></span>
+        <input class="inp" id="wNum" value="${esc(c.telefone||'')}" placeholder="(27) 99999-9999">
+        <div class="hint">Pode ser o telefone do cliente ou do contato responsável. O código do país é acrescentado automaticamente.</div></label>
+      <label class="f"><span>Mensagem</span><textarea class="inp" id="wMsg" style="min-height:180px">${esc(msg)}</textarea>
+        <div class="hint">Use *asteriscos* para negrito, como no WhatsApp.</div></label>
+      <div class="row" style="gap:8px;padding:12px;background:var(--ag-50);border-radius:10px">
+        <span style="color:var(--ag);display:flex">${ico('file')}</span>
+        <span class="tiny">${os.length} PDF${os.length>1?'s':''} ${os.length>1?'serão salvos':'será salvo'} ao abrir a conversa.
+        Anexe o arquivo pelo clipe do WhatsApp — o texto já vai preenchido.</span>
+      </div>
+    </div>`,
+    footer:`<button class="btn" data-close>Cancelar</button>
+      <button class="btn" id="wCopy">${ico('copy')}Copiar mensagem</button>
+      <button class="btn pri" id="wGo">${ico('wa')}Abrir WhatsApp</button>`,
+    onMount(ov,close){
+      mask(ov.querySelector('#wNum'),mkTel);
+      ov.querySelector('#wCopy').onclick=()=>copiar(ov.querySelector('#wMsg').value,'Mensagem copiada');
+      ov.querySelector('#wGo').onclick=async()=>{
+        const num=telefoneWA(ov.querySelector('#wNum').value);
+        if(num.length<12){toast('Informe o número com DDD','err');return}
+        const texto=ov.querySelector('#wMsg').value;
+        for(const o of os){await gerarPDF(o,true)}
+        os.forEach(o=>{if(o.status==='Rascunho'||o.status==='Gerado')o.status='Enviado';
+          hist(o,'Mensagem enviada por WhatsApp para '+ov.querySelector('#wNum').value)});
+        save('orc');
+        window.open('https://wa.me/'+num+'?text='+encodeURIComponent(texto),'_blank');
+        close();toast('WhatsApp aberto — anexe o PDF salvo');
+        if(ROUTE.k==='orc'){sel.clear();vOrc()}else if(ROUTE.k==='novo'&&B)vNovo(B.id);
+      };
+    }});
+}
+
 /* ═══════════════════ E-MAIL ═══════════════════ */
 function tpl(s,o){
   const c=cliente(o.cliente_id)||{},a=analista(o.analista_id||c.analista_id)||{};
@@ -2178,21 +2341,24 @@ function vCli(){
   const v=$('#view');
   v.innerHTML=`<div class="card">
     <div class="card-h"><div style="flex:1"><h3>Clientes</h3><p>${DB.clientes.length} cadastrados · logo, consultor e valores de instalação</p></div>
-      <div class="ac" style="position:relative;width:250px">
+      <select class="inp" id="cGrupo" style="width:170px"><option value="">Todos os grupos</option>
+        ${grupos().map(g=>`<option>${esc(g)}</option>`).join('')}</select>
+      <div class="ac" style="position:relative;width:230px">
         <span style="position:absolute;left:11px;top:10px;color:var(--ink-4);display:flex">${ico('srch')}</span>
         <input class="inp" id="cq" placeholder="Buscar cliente…" style="padding-left:36px"></div></div>
     <div id="cList"></div></div>`;
   const draw=(q='')=>{
-    const t=norm(q);
-    const list=DB.clientes.filter(c=>!t||norm(c.razao_social+' '+c.nome_fantasia+' '+c.cnpj).includes(t));
+    const t=norm(q),gr=$('#cGrupo')?.value||'';
+    const list=DB.clientes.filter(c=>!gr||c.grupo===gr).filter(c=>!t||norm([c.razao_social,c.nome_fantasia,c.cnpj,c.grupo].join(' ')).includes(t));
     $('#cList').innerHTML=list.length?`<div class="tbl-wrap"><table class="tbl">
-      <thead><tr><th style="width:80px">Logo</th><th>Cliente</th><th>CNPJ</th><th>Consultor</th>
+      <thead><tr><th style="width:80px">Logo</th><th>Cliente</th><th>Grupo</th><th>CNPJ</th><th>Consultor</th>
       <th>Instalação</th><th class="num">Orçamentos</th><th style="width:40px"></th></tr></thead>
       <tbody>${list.map(c=>{const n=DB.orcamentos.filter(o=>o.cliente_id===c.id);
         return `<tr data-id="${c.id}" style="cursor:pointer">
         <td>${c.logo?`<img src="${c.logo}" style="max-height:24px;max-width:64px;object-fit:contain">`
           :`<span class="tiny muted">—</span>`}</td>
         <td><b>${esc(c.nome_fantasia||c.razao_social)}</b><div class="tiny muted trunc" style="max-width:280px">${esc(c.razao_social)}</div></td>
+        <td>${c.grupo?`<span class="tag">${esc(c.grupo)}</span>`:'<span class="tiny muted">—</span>'}</td>
         <td class="tiny mono">${esc(c.cnpj||'—')}</td>
         <td class="tiny">${esc(analista(c.analista_id)?.nome||'—')}</td>
         <td class="tiny">${[c.chassi_ativo?'Chassi '+money(c.chassi_valor):'',c.cola_ativo?'Cola '+money(c.cola_valor):''].filter(Boolean).join('<br>')||'<span class="muted">—</span>'}</td>
@@ -2213,7 +2379,8 @@ function vCli(){
             DB.clientes=DB.clientes.filter(x=>x.id!==c.id);save('meta');toast('Cliente excluído');vCli()}}}]);
     });
   };
-  draw();$('#cq').oninput=debounce(e=>draw(e.target.value),160);
+  draw();$('#cq').oninput=debounce(e=>draw($('#cq').value),160);
+  $('#cGrupo').onchange=()=>draw($('#cq').value);
 }
 function cliForm(c,done){
   const n=!c;c=c?{...c}:{id:uid(),razao_social:'',nome_fantasia:'',cnpj:'',telefone:'',email:'',endereco:'',cidade:'',
@@ -2230,6 +2397,10 @@ function cliForm(c,done){
           <label class="f"><span>E-mail</span><input class="inp" id="kEm" value="${esc(c.email)}" placeholder="contato@empresa.com.br"></label>
           <label class="f"><span>Consultor responsável</span><select class="inp" id="kAn"><option value="">— selecione —</option>
             ${DB.analistas.map(a=>`<option value="${a.id}" ${c.analista_id===a.id?'selected':''}>${esc(a.nome)}</option>`).join('')}</select></label>
+          <label class="f"><span>Grupo do cliente</span>
+            <input class="inp" id="kGr" list="listaGrupos" value="${esc(c.grupo||'')}" placeholder="Locadoras, Seguradoras, Frotistas…">
+            <datalist id="listaGrupos">${grupos().map(g=>`<option value="${esc(g)}">`).join('')}</datalist>
+            <div class="hint">Usado para filtrar a carteira e agrupar os indicadores.</div></label>
         </div>
         <div class="grid" style="grid-template-columns:2fr 1fr 90px 120px;gap:12px">
           <label class="f"><span>Endereço</span><input class="inp" id="kEn" value="${esc(c.endereco)}"></label>
@@ -2277,7 +2448,7 @@ function cliForm(c,done){
         if(!g('kRs')){toast('Informe a razão social','err');return}
         Object.assign(c,{razao_social:g('kRs'),nome_fantasia:g('kNf')||g('kRs'),cnpj:g('kCn'),telefone:g('kTe'),
           email:g('kEm'),endereco:g('kEn'),cidade:g('kCi'),estado:g('kUf').toUpperCase(),cep:g('kCe'),
-          analista_id:ov.querySelector('#kAn').value,chassi_ativo:ov.querySelector('#kCh').checked,
+          analista_id:ov.querySelector('#kAn').value,grupo:g('kGr'),chassi_ativo:ov.querySelector('#kCh').checked,
           chassi_valor:num(g('kChV')),cola_ativo:ov.querySelector('#kCo').checked,cola_valor:num(g('kCoV')),
           obs_padrao:g('kOb')});
         const i=DB.clientes.findIndex(x=>x.id===c.id);
@@ -2595,8 +2766,8 @@ function parseCSV(text,merge){
    são as políticas de RLS aplicadas pelo schema SQL.
    ═══════════════════════════════════════════════════════════════ */
 const SUPABASE={
-  url:'',   // https://sldajxdoclkojauyadir.supabase.co
-  key:''    // sb_publishable_BVVDIK1pGE6q6OLhZJX6FQ_afODSygX
+  url:'',   // ex.: https://abcdefghijkl.supabase.co
+  key:''    // chave anon / publishable
 };
 /* Ordem de procura das credenciais:
    1. config.js publicado junto do index.html  (recomendado: sobrevive a cada atualização)
@@ -2709,7 +2880,7 @@ const Cloud={
     const err=[cfg,ana,cli,uni,emp,orc,ite,his,prod].find(r=>r.error);
     if(err)throw err.error;
 
-    if(cfg.data?.dados)DB.config={...DB.config,...cfg.data.dados,sbUrl:DB.config.sbUrl,sbKey:DB.config.sbKey};
+    if(cfg.data?.dados)DB.config={...DB.config,...cfgCompartilhada(cfg.data.dados)};
     /* Se o servidor já tem qualquer dado, ele é a fonte da verdade — inclusive para
        listas vazias, senão um cadastro apagado por outra pessoa reaparecia aqui.
        Só quando o banco está totalmente vazio os dados locais são preservados. */
@@ -2720,7 +2891,7 @@ const Cloud={
     if(usar(cli))DB.clientes=cli.data.map(r=>({id:r.id,razao_social:r.razao_social,
       nome_fantasia:r.nome_fantasia||r.razao_social,cnpj:r.cnpj||'',telefone:r.telefone||'',email:r.email||'',
       endereco:r.endereco||'',cidade:r.cidade||'',estado:r.estado||'',cep:r.cep||'',logo:r.logo||'',
-      chassi_ativo:!!r.chassi_ativo,chassi_valor:Number(r.chassi_valor)||0,cola_ativo:!!r.cola_ativo,
+      grupo:r.grupo||'',chassi_ativo:!!r.chassi_ativo,chassi_valor:Number(r.chassi_valor)||0,cola_ativo:!!r.cola_ativo,
       cola_valor:Number(r.cola_valor)||0,analista_id:r.analista_id||'',obs_padrao:r.obs_padrao||'',ativo:r.ativo!==false}));
     if(usar(uni))DB.unidades=uni.data.map(r=>({id:r.id,codigo:r.codigo,razao_social:r.razao_social,
       rs_auto:!!r.rs_auto,cnpj:r.cnpj||'',endereco:r.endereco||'',bairro:r.bairro||'',cidade:r.cidade||'',
@@ -2760,8 +2931,16 @@ const Cloud={
     this.sigs={};DB.orcamentos.forEach(o=>this.sigs[o.id]=sig(o));
     DB.config.onboarded=true;
     save('meta');save('orc');
-    const u=DB.analistas.find(a=>norm(a.email)===norm(this.user?.email||''));
-    if(u)DB.config.usuario=u.nome;
+    /* identidade: sempre a do usuário logado, nunca a de quem gravou a config */
+    try{
+      const eu=await this.meuCadastro();
+      if(eu){
+        if(eu.nome)DB.config.usuario=eu.nome;
+        DB.config.perfil={administrador:'Administrador',gestor:'Gestor',analista:'Analista'}[eu.perfil]||'Analista';
+        DB.config.onboarded=true;
+        save('meta');
+      }
+    }catch(e){}
     return DB.orcamentos.length;
   },
 
@@ -2775,7 +2954,7 @@ const Cloud={
         telefone:a.telefone,whatsapp:a.whatsapp,email:a.email,ativo:a.ativo!==false}))):null,
       DB.clientes.length?sb.from('clientes').upsert(DB.clientes.map(c=>({id:c.id,razao_social:c.razao_social,
         nome_fantasia:c.nome_fantasia,cnpj:c.cnpj||null,telefone:c.telefone,email:c.email,endereco:c.endereco,
-        cidade:c.cidade,estado:c.estado||null,cep:c.cep,logo:c.logo,chassi_ativo:c.chassi_ativo,
+        cidade:c.cidade,estado:c.estado||null,cep:c.cep,logo:c.logo,grupo:c.grupo||null,chassi_ativo:c.chassi_ativo,
         chassi_valor:num(c.chassi_valor),cola_ativo:c.cola_ativo,cola_valor:num(c.cola_valor),
         analista_id:c.analista_id||null,obs_padrao:c.obs_padrao,ativo:c.ativo!==false}))):null,
       DB.unidades.length?sb.from('unidades').upsert(DB.unidades.map(u=>({id:u.id,codigo:u.codigo,
@@ -2955,7 +3134,21 @@ const Cloud={
   },
 };
 function sig(o){return JSON.stringify(o)}
-function cfgLimpa(){const c={...DB.config};delete c.sbUrl;delete c.sbKey;delete c.prodDirty;return c}
+/* Preferências que são de cada pessoa e NÃO vão para o banco compartilhado.
+   Antes, o nome do usuário ficava na configuração global: quem entrasse por último
+   sobrescrevia a identidade de todos os colaboradores. */
+const CFG_PESSOAL=['usuario','perfil','tema','clientePadrao','unidadePadrao','onboarded','escolherPasta',
+  'autoBackup','ultimoBackup','sbUrl','sbKey','modoLocal','prodDirty','seedVer'];
+function cfgLimpa(){
+  const c={...DB.config};
+  CFG_PESSOAL.forEach(k=>delete c[k]);
+  return c;
+}
+function cfgCompartilhada(dados){
+  const c={...(dados||{})};
+  CFG_PESSOAL.forEach(k=>delete c[k]);
+  return c;
+}
 
 /* ── fila de envio com repetição automática ──
    Nada se perde por queda de rede: o que falhou continua na fila e é
@@ -3252,6 +3445,8 @@ function vCfg(){
         ${F('cUrl','URL do orçamento online',c.urlPublica,'https://…','Base do link e do QR Code impressos no PDF.')}
         <label class="chk ${c.qrcode?'on':''}" id="lQr"><input type="checkbox" id="cQr" ${c.qrcode?'checked':''}>
           <span><b>Imprimir QR Code no PDF</b><small>Leva o cliente à consulta online do orçamento</small></span></label>
+        <label class="chk ${c.escolherPasta!==false?'on':''}" id="lPasta"><input type="checkbox" id="cPasta" ${c.escolherPasta!==false?'checked':''}>
+          <span><b>Escolher a pasta ao salvar</b><small>Abre a janela de pastas do sistema. Desmarque para baixar direto na pasta de downloads</small></span></label>
       </div></div></div>
     <div class="row" style="margin-top:16px"><button class="btn pri" id="cSave">${ico('save')}Salvar configurações</button></div>`;
 
@@ -3278,6 +3473,7 @@ function vCfg(){
       ${F('mAss','Assunto padrão',c.mailAssunto)}
       ${T('mCor','Mensagem padrão',c.mailCorpo)}
       <div class="hint">Marcadores disponíveis: <b>{numero}</b>, <b>{cliente}</b>, <b>{identificacao}</b>, <b>{total}</b>, <b>{validade}</b>, <b>{consultor}</b>.</div>
+      ${T('wMsg','Mensagem padrão do WhatsApp',c.waMensagem,'Mesmos marcadores do e-mail. Use *asteriscos* para negrito.')}
       ${F('mApi','Endpoint de envio (POST)',c.mailApi,'https://seu-backend/api/enviar-orcamento',
         'Recebe JSON com <code>from, to, cc, subject, text, attachments[{filename, content(base64)}]</code>. Sem endpoint, o sistema baixa os PDFs e abre seu cliente de e-mail.')}
     </div></div>
@@ -3548,16 +3744,17 @@ function vCfg(){
   const g=id=>$('#'+id)?.value.trim();
   $('#cUp')&&($('#cUp').onclick=()=>pickImage(u=>{c.logo=u;save('meta');shell();vCfg();toast('Logo atualizada')},600));
   $('#cQr')&&($('#cQr').onchange=e=>$('#lQr').classList.toggle('on',e.target.checked));
+  $('#cPasta')&&($('#cPasta').onchange=e=>$('#lPasta').classList.toggle('on',e.target.checked));
   $('#cRefazer')&&($('#cRefazer').onclick=async()=>{await onboarding();vCfg()});
   $('#cSave')&&($('#cSave').onclick=()=>{
     if(cfgTab==='geral')Object.assign(c,{empresa:g('cEmp'),usuario:g('cUsr'),tema:$('#cTema').value,
       clientePadrao:$('#cCliP').value,unidadePadrao:$('#cUniP').value,prefixo:(g('cPref')||'ORC').toUpperCase(),
       proxNumero:Math.max(1,parseInt(g('cProx'))||1),validade:Math.max(1,parseInt(g('cVal'))||5),
-      urlPublica:g('cUrl'),qrcode:$('#cQr').checked});
+      urlPublica:g('cUrl'),qrcode:$('#cQr').checked,escolherPasta:$('#cPasta').checked});
     if(cfgTab==='pdf')Object.assign(c,{chassiPadrao:num(g('cCh')),colaPadrao:num(g('cCo')),
       txtChassiCola:g('tChCo'),txtChassi:g('tCh'),txtCola:g('tCo'),msgRodape:g('cRod')});
     if(cfgTab==='mail')Object.assign(c,{mailRemetente:g('mRem'),mailNome:g('mNom'),mailAssunto:g('mAss'),
-      mailCorpo:$('#mCor').value,mailApi:g('mApi')});
+      mailCorpo:$('#mCor').value,waMensagem:$('#wMsg').value,mailApi:g('mApi')});
     if(cfgTab==='integ')Object.assign(c,{placaApi:g('pApi'),placaToken:g('pTok')});
     save('meta');shell();applyTheme();toast('Configurações salvas');vCfg();
   });
