@@ -1390,9 +1390,95 @@ const OPC={
 };
 const ROT={cli:'Cliente',gr:'Grupo',an:'Consultor',uni:'Unidade',st:'Status',ts:'Tipo de serviço'};
 const nFiltros=f=>Object.keys(ROT).reduce((n,k)=>n+(f[k]?.length?1:0),0)+(f.de?1:0)+(f.ate?1:0);
+
+/* ═══════════════════ EXPORTAÇÃO PARA EXCEL ═══════════════════
+   Dois recortes: um registro por orçamento (resumo gerencial) e um registro
+   por item (para cruzar peça, categoria e valor). Formato brasileiro —
+   separador ponto e vírgula, decimal com vírgula e BOM, para o Excel abrir
+   direto sem assistente de importação.                                      */
+const csvNum=n=>(Number(n)||0).toFixed(2).replace('.',',');
+const csvCampo=v=>`"${String(v??'').replace(/"/g,'""').replace(/\r?\n/g,' ')}"`;
+function montaCSV(cabecalho,linhas){
+  return '\uFEFF'+[cabecalho,...linhas].map(r=>r.map(csvCampo).join(';')).join('\r\n');
+}
+function csvResumo(lista){
+  const H=['Numero','Versao','Data','Status','Cliente','Grupo','CNPJ Cliente','Consultor','Unidade',
+    'Cidade','UF','Tipo de servico','Identificacao','Tipo ID','Veiculo','Itens','Qtd pecas',
+    'Subtotal','Instalacao','Total','Validade (dias)','Vencimento','Dias p/ vencer',
+    'Agendamento','Observacoes','Criado em'];
+  const linhas=lista.map(o=>{
+    const c=cliente(o.cliente_id)||{},u=unidade(o.unidade_id)||{};
+    const qtd=o.itens.reduce((n,i)=>n+(num(i.qtd)||1),0);
+    const venc=['Gerado','Enviado'].includes(o.status)?diasRestantes(o):'';
+    return [o.numero,o.versao||1,dBR(o.data),o.status,
+      c.nome_fantasia||c.razao_social||'',c.grupo||'',c.cnpj||'',
+      analista(o.analista_id)?.nome||'',u.codigo||'',u.cidade||'',u.estado||'',
+      o.tipo_servico,o.ident_valor||'',o.ident_tipo||'',o.veiculo||'',
+      o.itens.length,qtd,csvNum(o.subtotal),csvNum(o.instalacao),csvNum(o.total),
+      o.validade_dias,dBR(vencimento(o)),venc,
+      o.data_agend?dBR(o.data_agend)+(o.hora_agend?' '+o.hora_agend:''):'',
+      (o.obs||[]).join(' | '),dtBR(o.created_at)];
+  });
+  return montaCSV(H,linhas);
+}
+function csvItens(lista){
+  const H=['Numero','Versao','Data','Status','Cliente','Grupo','Consultor','Unidade','UF',
+    'Tipo de servico','Identificacao','Veiculo','Codigo','Descricao','Categoria','Aplicacao',
+    'Quantidade','Valor unitario','Chassi','Cola','Valor instalacao','Valor total item'];
+  const linhas=[];
+  lista.forEach(o=>{
+    const c=cliente(o.cliente_id)||{},u=unidade(o.unidade_id)||{};
+    o.itens.forEach(i=>{
+      const p=DB.produtos.find(x=>x.codigo===i.codigo)||{};
+      const q=num(i.qtd)||1;
+      const inst=((i.chassi?num(o.chassi_valor):0)+(i.cola?num(o.cola_valor):0))*q;
+      linhas.push([o.numero,o.versao||1,dBR(o.data),o.status,
+        c.nome_fantasia||c.razao_social||'',c.grupo||'',analista(o.analista_id)?.nome||'',
+        u.codigo||'',u.estado||'',o.tipo_servico,o.ident_valor||'',o.veiculo||'',
+        i.codigo||'',i.descricao||'',p.categoria||'',p.aplicacao||'',
+        q,csvNum(i.valor_unit),i.chassi?'Sim':'Nao',i.cola?'Sim':'Nao',
+        csvNum(inst),csvNum(i.valor_total)]);
+    });
+  });
+  return montaCSV(H,linhas);
+}
+function exportarModal(lista,origem){
+  if(!lista.length){toast('Nenhum orçamento para exportar','err');return}
+  const nItens=lista.reduce((n,o)=>n+o.itens.length,0);
+  const total=lista.reduce((n,o)=>n+o.total,0);
+  const rotulo={filtrados:'conforme os filtros da tela',selecionados:'selecionados na lista',
+    todos:'todos os orçamentos salvos'}[origem]||'';
+  modal({title:'Exportar para Excel',sub:`${lista.length} orçamento(s) ${rotulo} · ${money(total)}`,
+    body:`<div class="grid" style="gap:12px">
+      <button class="opt" id="exRes" style="flex-direction:row;align-items:flex-start;gap:13px;padding:16px">
+        ${ico('files')}<span style="text-align:left"><b>Um registro por orçamento</b>
+        <small style="display:block;margin-top:3px">Visão gerencial: cliente, grupo, consultor, unidade, valores,
+        status, validade e vencimento. ${lista.length} linha(s).</small></span></button>
+      <button class="opt" id="exIte" style="flex-direction:row;align-items:flex-start;gap:13px;padding:16px">
+        ${ico('box')}<span style="text-align:left"><b>Um registro por item</b>
+        <small style="display:block;margin-top:3px">Para analisar peças: código, descrição, categoria, aplicação,
+        quantidade, valor unitário e instalação. ${nItens} linha(s).</small></span></button>
+      <div class="row" style="gap:8px;padding:11px;border-radius:10px;background:var(--surface-2)">
+        <span style="color:var(--ag);display:flex">${ico('chart')}</span>
+        <span class="tiny">Arquivo em ponto e vírgula, decimal com vírgula e acentuação UTF-8:
+        abre direto no Excel em português, sem assistente de importação.</span></div>
+    </div>`,
+    footer:`<button class="btn" data-close>Fechar</button>`,
+    onMount(ov,close){
+      const baixar=(conteudo,sufixo)=>{
+        const d=today().split('-').reverse().join('-');
+        dl(new Blob([conteudo],{type:'text/csv;charset=utf-8'}),`orcamentos_${sufixo}_${d}.csv`);
+        close();
+      };
+      ov.querySelector('#exRes').onclick=()=>baixar(csvResumo(lista),'resumo');
+      ov.querySelector('#exIte').onclick=()=>baixar(csvItens(lista),'itens');
+    }});
+}
+
 function vOrc(){
   const v=$('#view');
-  $('#topActions').innerHTML=`<button class="btn pri" onclick="go('novo')">${ico('plus')}Novo orçamento</button>`;
+  $('#topActions').innerHTML=`<button class="btn" id="oExp">${ico('dl')}Exportar CSV</button>
+    <button class="btn pri" onclick="go('novo')">${ico('plus')}Novo orçamento</button>`;
   const inc=(arr,v)=>!arr.length||arr.includes(v);
   const list=DB.orcamentos.filter(o=>{
     const c=cliente(o.cliente_id);
@@ -1465,6 +1551,7 @@ function vOrc(){
   $$('.ck1').forEach(c=>c.onchange=()=>{c.checked?sel.add(c.dataset.id):sel.delete(c.dataset.id);bulk(list)});
   $$('[data-more]').forEach(b=>b.onclick=e=>{e.stopPropagation();rowMenu(b,b.dataset.more)});
   $$('.tbl tbody tr').forEach(tr=>tr.onclick=e=>{if(e.target.closest('input,button'))return;go('novo',tr.dataset.id)});
+  $('#oExp').onclick=()=>exportarModal(list,'filtrados');
   bulk(list);
 }
 function bulk(list){
@@ -1475,6 +1562,7 @@ function bulk(list){
     <button class="btn sm" data-a="pdf">${ico('dl')}Baixar PDFs</button>
     <button class="btn sm" data-a="mail">${ico('mail')}E-mail</button>
     <button class="btn sm" data-a="wa">${ico('wa')}WhatsApp</button>
+    <button class="btn sm" data-a="csv">${ico('dl')}Exportar CSV</button>
     <button class="btn sm" data-a="st">${ico('tag')}Alterar status</button>
     <button class="btn sm" data-a="del">${ico('trash')}Excluir</button>
     <button class="btn sm" data-a="clr">${ico('x')}Limpar</button></div>`;
@@ -1482,6 +1570,7 @@ function bulk(list){
   b.querySelector('[data-a="pdf"]').onclick=()=>baixarLote([...sel]);
   b.querySelector('[data-a="mail"]').onclick=()=>mailModal([...sel]);
   b.querySelector('[data-a="wa"]').onclick=()=>waModal([...sel]);
+  b.querySelector('[data-a="csv"]').onclick=()=>exportarModal([...sel].map(orc).filter(Boolean),'selecionados');
   b.querySelector('[data-a="st"]').onclick=e=>popMenu(e.currentTarget,STATUS.map(s=>({k:s,label:s,icon:'tag',
     fn:()=>{[...sel].forEach(id=>{const o=orc(id);if(o.status!==s){o.status=s;hist(o,'Status alterado para "'+s+'"')}});save('orc');toast(sel.size+' orçamento(s) atualizados');vOrc()}})));
   b.querySelector('[data-a="del"]').onclick=async()=>{
@@ -3796,17 +3885,7 @@ function vCfg(){
           save('meta');save('prod');save('orc');shell();toast('Backup restaurado');vCfg();
         }catch(e){toast('Falha: '+e.message,'err')}};fr.readAsText(f)};i.click();
     };
-    $('#bCsv').onclick=()=>{
-      const H=['Numero','Versao','Data','Cliente','CNPJ','Identificacao','Tipo','Veiculo','Unidade','TipoServico',
-        'Consultor','Itens','Subtotal','Instalacao','Total','Status','Validade','Vencimento'];
-      const rows=DB.orcamentos.map(o=>{const c=cliente(o.cliente_id)||{},u=unidade(o.unidade_id)||{};
-        return [o.numero,o.versao,dBR(o.data),c.nome_fantasia||c.razao_social||'',c.cnpj||'',o.ident_valor,o.ident_tipo,
-          o.veiculo||'',u.codigo||'',o.tipo_servico,analista(o.analista_id)?.nome||'',o.itens.length,
-          o.subtotal.toFixed(2).replace('.',','),o.instalacao.toFixed(2).replace('.',','),
-          o.total.toFixed(2).replace('.',','),o.status,o.validade_dias,dBR(vencimento(o))]});
-      const csv='\uFEFF'+[H,...rows].map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\n');
-      dl(new Blob([csv],{type:'text/csv;charset=utf-8'}),'orcamentos_'+today()+'.csv');
-    };
+    $('#bCsv').onclick=()=>exportarModal(DB.orcamentos,'todos');
     $('#bWipe').onclick=async()=>{
       if(await confirmar('Apagar orçamentos','Todos os '+DB.orcamentos.length+' orçamentos serão removidos. Cadastros são mantidos.','Apagar tudo')){
         DB.orcamentos=[];save('orc');toast('Orçamentos apagados');vCfg()}};
