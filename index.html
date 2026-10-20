@@ -58,39 +58,77 @@ a{color:var(--ag);text-decoration:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
 /* ---------- LAYOUT ---------- */
-.app{display:flex;min-height:100vh}
-.sb{width:var(--sb);flex:0 0 var(--sb);background:var(--card);border-right:1px solid var(--line);
-  position:sticky;top:0;height:100vh;display:flex;flex-direction:column;transition:width .18s ease,flex-basis .18s ease;z-index:40}
+.app{display:flex;min-height:100vh;gap:0}
+/* ───────── BARRA LATERAL FLUTUANTE ─────────
+   Painel descolado da borda, com profundidade e um realce que desliza entre
+   os itens. O relevo é sutil de propósito: dá movimento sem tirar o ar
+   corporativo do sistema.                                                  */
+.sb{width:var(--sb);flex:0 0 var(--sb);position:sticky;top:0;height:100vh;z-index:40;
+  padding:14px 0 14px 14px;display:flex;
+  transition:width .26s cubic-bezier(.22,.9,.3,1),flex-basis .26s cubic-bezier(.22,.9,.3,1)}
+.sb-painel{flex:1;min-width:0;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r-lg);display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 10px 34px rgba(19,26,43,.09),0 2px 8px rgba(19,26,43,.05);
+  transform-style:preserve-3d;transition:box-shadow .3s ease,transform .3s ease}
+.sb:hover .sb-painel{box-shadow:0 18px 48px rgba(19,26,43,.14),0 3px 10px rgba(19,26,43,.06)}
+[data-theme="dark"] .sb-painel{box-shadow:0 14px 40px rgba(0,0,0,.5),0 2px 8px rgba(0,0,0,.4)}
 body.mini .sb{width:var(--sb-min);flex-basis:var(--sb-min)}
-.sb-top{padding:14px 18px 12px;display:flex;align-items:center;gap:10px;min-height:64px;
-  background:none;border:0;width:100%;cursor:pointer;border-radius:0}
-.sb-top:hover .sb-logo{opacity:.75}
-.sb-logo{transition:opacity .12s}
-.sb-logo{height:30px;width:auto;max-width:100%;object-fit:contain;display:block}
-body.mini .sb-logo{height:24px}
-.sb-nav{padding:8px 10px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;flex:1}
-.sb-sec{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-4);
-  padding:16px 12px 6px;font-weight:600}
-body.mini .sb-sec{opacity:0;height:14px;padding:8px 0 0}
-.nav{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:var(--r-sm);
+
+.sb-top{padding:16px 16px 12px;display:flex;align-items:center;gap:10px;min-height:62px;
+  background:none;border:0;width:100%;cursor:pointer;border-radius:0;perspective:600px}
+.sb-logo{height:28px;width:auto;max-width:100%;object-fit:contain;display:block;
+  transition:transform .35s cubic-bezier(.22,.9,.3,1),opacity .2s}
+.sb-top:hover .sb-logo{transform:rotateY(-12deg) translateZ(6px) scale(1.04)}
+.sb-top:active .sb-logo{transform:scale(.96)}
+body.mini .sb-logo{height:22px}
+
+.sb-nav{padding:6px 10px 10px;display:flex;flex-direction:column;gap:3px;overflow-y:auto;overflow-x:hidden;
+  flex:1;position:relative;scrollbar-width:thin}
+.sb-nav::-webkit-scrollbar{width:6px}
+.sb-sec{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4);
+  padding:16px 12px 6px;font-weight:600;white-space:nowrap;transition:opacity .2s}
+body.mini .sb-sec{opacity:0;height:16px;padding:9px 0 0;pointer-events:none}
+
+/* realce que desliza entre os itens */
+#navMarca{position:absolute;left:10px;right:10px;height:0;border-radius:var(--r-sm);
+  background:linear-gradient(135deg,var(--ag) 0%,var(--ag-700) 100%);
+  box-shadow:0 6px 16px rgba(22,65,148,.3);opacity:0;pointer-events:none;z-index:0;
+  transition:transform .34s cubic-bezier(.34,1.3,.5,1),height .22s ease,opacity .22s ease}
+[data-theme="dark"] #navMarca{background:linear-gradient(135deg,#2f5190 0%,#1d3360 100%);
+  box-shadow:0 6px 18px rgba(0,0,0,.45)}
+
+.nav{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:var(--r-sm);
   color:var(--ink-2);font-weight:500;cursor:pointer;border:0;background:none;width:100%;text-align:left;
-  position:relative;transition:background .12s,color .12s}
-.nav:hover{background:var(--ag-50);color:var(--ag)}
-.nav.on{background:var(--ag);color:#fff}
-.nav svg{width:18px;height:18px;flex:0 0 18px;stroke-width:1.7}
-.nav span{white-space:nowrap;overflow:hidden}
-body.mini .nav span{display:none}
-body.mini .nav{justify-content:center;padding:11px 0}
-body.mini .nav:hover span,body.mini .nav.on span{display:none}
-body.mini .nav[data-tip]:hover::after{content:attr(data-tip);position:absolute;left:calc(100% + 10px);
-  background:var(--tip-bg);color:var(--tip-fg);padding:6px 10px;border-radius:8px;font-size:12px;white-space:nowrap;z-index:80}
-.sb-foot{padding:12px;border-top:1px solid var(--line-2)}
-.sb-user{display:flex;align-items:center;gap:10px;padding:8px;border-radius:var(--r-sm)}
+  position:relative;z-index:1;white-space:nowrap;
+  transition:color .2s ease,background .2s ease,transform .22s cubic-bezier(.22,.9,.3,1)}
+.nav:hover{background:var(--ag-50);color:var(--ag);transform:translateX(3px)}
+.nav.on{color:#fff;background:none;transform:none}
+.nav.on:hover{background:none;transform:none}
+[data-theme="dark"] .nav.on{color:#eef3ff}
+.nav svg{width:18px;height:18px;flex:0 0 18px;stroke-width:1.75;
+  transition:transform .3s cubic-bezier(.34,1.4,.5,1)}
+.nav:hover svg{transform:scale(1.14) rotate(-4deg)}
+.nav.on svg{transform:scale(1.06)}
+.nav span{overflow:hidden;text-overflow:ellipsis;transition:opacity .18s ease}
+body.mini .nav span{opacity:0;width:0;display:none}
+body.mini .nav{justify-content:center;padding:11px 0;gap:0}
+body.mini .nav:hover{transform:translateX(0) scale(1.08)}
+body.mini .nav[data-tip]:hover::after{content:attr(data-tip);position:absolute;left:calc(100% + 14px);
+  background:var(--tip-bg);color:var(--tip-fg);padding:7px 11px;border-radius:9px;font-size:12px;
+  white-space:nowrap;z-index:80;box-shadow:var(--sh-2);animation:tipIn .18s ease}
+@keyframes tipIn{from{opacity:0;transform:translateX(-6px)}}
+
+.sb-foot{padding:10px;border-top:1px solid var(--line-2)}
+.sb-user{display:flex;align-items:center;gap:10px;padding:8px;border-radius:var(--r-sm);
+  transition:background .18s}
+.sb-user:hover{background:var(--surface-2)}
 .av{width:32px;height:32px;flex:0 0 32px;border-radius:50%;background:var(--ag);color:#fff;
-  display:grid;place-items:center;font-weight:600;font-size:12px}
+  display:grid;place-items:center;font-weight:600;font-size:12px;
+  box-shadow:0 3px 10px rgba(22,65,148,.28);transition:transform .3s cubic-bezier(.34,1.4,.5,1)}
+.sb-user:hover .av{transform:translateY(-2px) scale(1.05)}
 .sb-user div{overflow:hidden}
 .sb-user b{display:block;font-size:12.5px;font-weight:600;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
-.sb-user small{color:var(--ink-3);font-size:11px}
+.sb-user small{color:var(--ink-3);font-size:11px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;display:block}
 body.mini .sb-user div{display:none}
 body.mini .sb-user{justify-content:center}
 
@@ -446,10 +484,12 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--ag);cursor:pointe
 .mobile-hide{display:inline-grid}
 @media(max-width:1180px){.bld{grid-template-columns:1fr}.side{position:static}.g4{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:900px){
-  .sb{position:fixed;left:0;top:0;transform:translateX(-100%);transition:transform .2s ease;width:var(--sb);flex-basis:var(--sb)}
+  .sb{position:fixed;left:0;top:0;transform:translateX(-104%);transition:transform .26s cubic-bezier(.22,.9,.3,1);
+    width:var(--sb);flex-basis:var(--sb);padding:10px}
   body.drawer-open .sb{transform:none}
   body.drawer-open::after{content:'';position:fixed;inset:0;background:rgba(19,26,43,.4);z-index:35}
   body.mini .sb{width:var(--sb);flex-basis:var(--sb)}
+  body.drawer-open .sb-painel{box-shadow:0 24px 60px rgba(0,0,0,.35)}
   body.mini .nav span,body.mini .sb-sec,body.mini .sb-user div{display:block;opacity:1}
   body.mini .nav{justify-content:flex-start;padding:9px 12px}
   .g2,.g3,.g4{grid-template-columns:1fr}
@@ -473,18 +513,18 @@ const SEED_TOTAL=8484;
 </script>
 
 <div class="app">
-  <aside class="sb">
+  <aside class="sb"><div class="sb-painel">
     <button class="sb-top" id="sbHome" title="Voltar para o início" aria-label="Voltar para o início">
       <img class="sb-logo" id="sbLogo" alt="Autoglass" src="">
     </button>
-    <nav class="sb-nav" id="nav"></nav>
+    <nav class="sb-nav" id="nav"><span id="navMarca"></span></nav>
     <div class="sb-foot">
       <div class="sb-user">
         <div class="av" id="uav">GA</div>
         <div><b id="uname">Gabriel Aguiar</b><small id="urole">Administrador</small></div>
       </div>
     </div>
-  </aside>
+  </div></aside>
   <div class="main">
     <header class="top">
       <button class="icobtn" id="toggleSb" title="Recolher menu" aria-label="Recolher menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
@@ -605,7 +645,7 @@ const debounce=(f,ms=220)=>{let t;return(...a)=>{clearTimeout(t);t=setTimeout(()
 /* ───────────────────────── STORE ─────────────────────────
    Persistência real via window.storage (artifact storage).
    Fallback em memória + backup manual JSON caso indisponível.  */
-const KEYS={meta:'ag:meta',orc:'ag:orcamentos',prod:'ag:produtos'};
+const KEYS={meta:'ag:meta',orc:'ag:orcamentos',prod:'ag:produtos',afi:'ag:afiliados',aut:'ag:autorizacoes'};
 const mem={};
 
 /* ── IndexedDB: banco local do navegador, sem limite prático de tamanho ── */
@@ -676,7 +716,8 @@ const Store={
     return false;
   }
 };
-let DB={config:null,analistas:[],clientes:[],unidades:[],empresas:[],produtos:[],orcamentos:[],seq:0};
+let DB={config:null,analistas:[],clientes:[],unidades:[],empresas:[],produtos:[],orcamentos:[],
+  afiliados:[],autorizacoes:[],seq:0};
 const savers={};
 function save(part,agora){
   clearTimeout(savers[part]);
@@ -685,10 +726,44 @@ function save(part,agora){
       unidades:DB.unidades,empresas:DB.empresas,seq:DB.seq});
     if(part==='orc')Store.set(KEYS.orc,DB.orcamentos);
     if(part==='prod')Store.set(KEYS.prod,DB.produtos);
+    if(part==='afi')Store.set(KEYS.afi,DB.afiliados);
+    if(part==='aut')Store.set(KEYS.aut,DB.autorizacoes);
   };
   if(agora)grava();else savers[part]=setTimeout(grava,140);
   if(typeof sincronizar==='function')sincronizar(part);   /* espelha no Supabase quando conectado */
 }
+const ROTEIRO_PADRAO=`Com a Autorização de Serviço em mãos, realize a conferência dos dados do veículo: placa, modelo e chassi completo. Havendo qualquer divergência, entre em contato com o analista responsável pelo e-mail pelo qual recebeu a autorização ou pelo telefone {telefone}. O afiliado não deve seguir com o atendimento sem a autorização expressa do analista responsável.
+
+Na sequência, preencha os campos do Check-list de entrada do veículo. As assinaturas manuscritas do condutor e do credenciado são obrigatórias e devem ser feitas, preferencialmente, com caneta esferográfica azul.
+
+Questione o responsável pelo automóvel se há objetos de valor no interior do veículo. Caso exista, solicite que sejam retirados e mantidos sob sua guarda. Se necessário, registre essa informação no campo de observações do Check-list.
+
+##Emissão da nota fiscal de serviço
+Verifique na Autorização de Serviço se o valor descrito está de acordo com o valor da mão de obra negociada. Estando correto, emita a Nota Fiscal de Serviço, sem retenção de impostos, conforme os dados de CNPJ, endereço, valor e razão social constantes na autorização.
+
+Anote no corpo da nota as seguintes informações: descrição do serviço realizado, placa do veículo e ordem de serviço. O pagamento será efetuado via depósito bancário na conta cadastrada no momento do credenciamento.
+
+##Prazo e programação de pagamento
+O pagamento será realizado após a confirmação da execução do serviço, mediante envio da documentação por e-mail, em uma única Nota Fiscal de Serviço.
+
+Será efetuado em até 10 dias corridos após o recebimento da documentação completa, acompanhada das evidências obrigatórias: fotos do atendimento evidenciando a avaria da peça, nos formatos antes, durante e após o serviço, comprovando sua execução com sucesso.
+
+##Autorização de serviço
+Documento enviado pelo analista da Autoglass à loja credenciada. Contém todas as informações necessárias para emissão da nota fiscal, os dados da unidade e do condutor, o qual deverá assinar o termo com CPF e data no momento do atendimento.
+
+Acompanhe o status da documentação pelo e-mail {email}. Em caso de dúvidas sobre o pagamento ou recusa de documentação, entre em contato com a Rede de Afiliados pelo telefone {telefone}.
+
+##Devolução de mercadoria
+O procedimento será iniciado após 20 dias de não comparecimento do condutor para realização do serviço. A loja credenciada deverá contatar o condutor para reagendamento ou confirmação do cancelamento, comunicando o analista por e-mail.
+
+A conferência da peça deve ser realizada no ato da entrega. A devolução ocorrerá somente mediante comprovação de que a peça não apresenta avarias e está em condições adequadas de uso. Caso seja identificado algum defeito no momento da entrega, o credenciado deverá recusar a peça e registrar a ressalva na nota fiscal.
+
+##Garantia
+O credenciado deverá prestar garantia integral sobre todos os serviços realizados.
+
+##Nota fiscal de simples remessa
+A circulação do produto deverá seguir as normas fiscais de movimentação, por meio de nota fiscal de simples remessa, que deve ser aceita pelo credenciado. Esse tipo de nota valida a operação de transporte, garantindo que não há operação comercial envolvida: trata-se apenas de uma transferência de itens de um ponto a outro, sem fins lucrativos.`;
+const DIAGRAMA_AVARIAS="data:image/jpeg;base64,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";
 const SEEDVER=3;
 const DEFCFG={
   empresa:'AUTOGLASS',logo:LOGO_AG,
@@ -707,17 +782,29 @@ const DEFCFG={
   waMensagem:'Olá! Segue o orçamento *{numero}* referente a {identificacao}.\n\nValor total: *{total}*\nValidade: {validade} dias.\n\nQualquer dúvida, estou à disposição.\n{consultor} — Autoglass',
   mailApi:'',placaApi:'',placaToken:'',
   urlPublica:'https://orcamentos.autoglass.com.br/q/',
-  qrcode:true,escolherPasta:true,usuario:'',perfil:'Administrador'
+  qrcode:true,escolherPasta:true,
+  /* rede de afiliados */
+  prefixoAut:'AUT',proxAut:1,validadeAut:30,
+  redeTelefone:'(27) 99755-9332',redeEmail:'credenciamento.frotas@autoglass.com.br',
+  roteiroTexto:ROTEIRO_PADRAO,
+  autAvisoChassi:'A loja sempre deve conferir o número do chassi e a placa antes de realizar o atendimento. Havendo divergência, entrar em contato com o operador responsável.',
+  autAvisoFotos:'FAVOR PROVIDENCIAR FOTOS DO DANO ANTES DO REPARO, DURANTE E APÓS O SERVIÇO REALIZADO.',
+  autCondicoes:'Os itens danificados deverão ser substituídos por peças com qualidade, características ou desempenho semelhantes (peças originais) aos dos itens danificados nos veículos.\nO Grupo Autoglass se reserva o direito de exigir a troca de peças, eventualmente instaladas, que não atendam ao quesito de qualidade acima mencionado, assim como não será responsável por qualquer custo decorrente da instalação ou remoção da peça que não se enquadre nesse quesito.\nA Autorização de Serviço tem validade de {validade} dias após a data de emissão. Caso o serviço não seja realizado nesse prazo, favor entrar em contato pelo telefone {telefone} ou pelo e-mail {email}.',
+  usuario:'',perfil:'Administrador'
 };
 async function boot(){
   await Store.init();
   const meta=await Store.get(KEYS.meta);
   const orc=await Store.get(KEYS.orc);
   const prod=await Store.get(KEYS.prod);
+  const afi=await Store.get(KEYS.afi);
+  const aut=await Store.get(KEYS.aut);
   if(meta){DB.config={...DEFCFG,...meta.config};DB.analistas=meta.analistas||[];DB.clientes=meta.clientes||[];
     DB.unidades=meta.unidades||[];DB.empresas=meta.empresas||[];DB.seq=meta.seq||0}
   else{seedMeta();save('meta')}
   DB.orcamentos=orc||[];
+  DB.afiliados=afi||[];
+  DB.autorizacoes=aut||[];
   /* a base de peças só ocupa espaço no armazenamento depois de editada;
      enquanto estiver intacta, é reconstruída do catálogo embarcado a cada abertura */
   DB.produtos=prod&&prod.length?prod:[];
@@ -1126,6 +1213,10 @@ const MENU=[
  {k:'dash',t:'Dashboard',i:'dash'},
  {k:'novo',t:'Novo orçamento',i:'file'},
  {k:'orc',t:'Orçamentos',i:'files'},
+ {sec:'Rede de afiliados'},
+ {k:'novaaut',t:'Nova autorização',i:'shield'},
+ {k:'aut',t:'Autorizações',i:'layers'},
+ {k:'ofi',t:'Oficinas afiliadas',i:'bank'},
  {sec:'Cadastros'},
  {k:'cli',t:'Clientes',i:'users'},
  {k:'uni',t:'Unidades',i:'bldg'},
@@ -1134,24 +1225,41 @@ const MENU=[
  {k:'cfg',t:'Configurações',i:'cog'},
 ];
 function renderNav(){
-  $('#nav').innerHTML=MENU.map(m=>m.sec?`<div class="sb-sec">${m.sec}</div>`
+  $('#nav').innerHTML='<span id="navMarca"></span>'+MENU.map(m=>m.sec?`<div class="sb-sec">${m.sec}</div>`
     :`<button class="nav" data-k="${m.k}" data-tip="${m.t}">${ico(m.i)}<span>${m.t}</span></button>`).join('');
   $$('#nav .nav').forEach(b=>b.onclick=()=>{go(b.dataset.k);document.body.classList.remove('drawer-open')});
 }
+/* leva o realce até o item ativo; sem item ativo, ele some */
+function moverMarca(){
+  const m=$('#navMarca'),ativo=$('#nav .nav.on');
+  if(!m)return;
+  if(!ativo){m.style.opacity=0;m.style.height=0;return}
+  const nav=$('#nav');
+  const topo=ativo.offsetTop-nav.scrollTop;
+  m.style.height=ativo.offsetHeight+'px';
+  m.style.transform='translateY('+topo+'px)';
+  m.style.opacity=1;
+}
+addEventListener('resize',()=>requestAnimationFrame(moverMarca));
 const TITLES={hub:['Início','Tudo o que você usa no dia a dia'],dash:['Dashboard','Visão gerencial da carteira'],novo:['Novo orçamento','Crie e gere o PDF em poucos passos'],
  orc:['Orçamentos','Gestão, filtros e ações em massa'],cli:['Clientes','Cadastro, logo e configurações comerciais'],
  uni:['Unidades Autoglass','Dados usados automaticamente no PDF'],prod:['Produtos','Base de peças e serviços'],
- cfg:['Configurações','Preferências gerais, PDF e e-mail']};
+ cfg:['Configurações','Preferências gerais, PDF e e-mail'],
+ novaaut:['Nova autorização','Autorização, roteiro e check-list da oficina afiliada'],
+ aut:['Autorizações de serviço','Documentos emitidos para a rede de afiliados'],
+ ofi:['Oficinas afiliadas','Base de credenciados usada nas autorizações']};
 let ROUTE={k:'hub',arg:null};
 function go(k,arg){location.hash='#/'+k+(arg?'/'+arg:'')}
 function router(){
   const[,k,arg]=(location.hash||'#/hub').replace(/^#\//,'').split('/').reduce((a,v,i)=>(a[i+1]=v,a),[null]);
   ROUTE={k:k||'hub',arg:arg||null};
   if(!TITLES[ROUTE.k])ROUTE.k='hub';
-  $$('#nav .nav').forEach(b=>b.classList.toggle('on',b.dataset.k===ROUTE.k||(ROUTE.k==='novo'&&b.dataset.k==='novo')));
+  $$('#nav .nav').forEach(b=>b.classList.toggle('on',b.dataset.k===ROUTE.k));
+  requestAnimationFrame(moverMarca);
   const[t,s]=TITLES[ROUTE.k];$('#ttl').textContent=t;$('#sub').textContent=s;
   $('#topActions').innerHTML='';fecharSugestoes();window.scrollTo(0,0);
-  ({hub:vHub,dash:vDash,novo:vNovo,orc:vOrc,cli:vCli,uni:vUni,prod:vProd,cfg:vCfg})[ROUTE.k](ROUTE.arg);
+  ({hub:vHub,dash:vDash,novo:vNovo,orc:vOrc,cli:vCli,uni:vUni,prod:vProd,cfg:vCfg,
+    novaaut:vNovaAut,aut:vAut,ofi:vOfi})[ROUTE.k](ROUTE.arg);
   /* ao abrir listas, confere se alguém da equipe alterou algo */
   if(['orc','dash','hub'].includes(ROUTE.k)&&typeof Cloud!=='undefined'&&Cloud.pronto())
     Cloud.refrescar().then(m=>{if(m&&['orc','dash','hub'].includes(ROUTE.k))router()});
@@ -1160,6 +1268,44 @@ addEventListener('hashchange',router);
 
 /* ───────────────────────── HELPERS DE DOMÍNIO ───────────────────────── */
 const cliente=id=>DB.clientes.find(c=>c.id===id);
+const afiliado=id=>DB.afiliados.find(a=>a.id===id);
+const aut=id=>DB.autorizacoes.find(a=>a.id===id);
+const STATUS_AUT=['Rascunho','Emitida','Enviada','Executada','Cancelada'];
+const CLASSE_AUT={Rascunho:'s-rascunho',Emitida:'s-gerado',Enviada:'s-enviado',
+  Executada:'s-aprovado',Cancelada:'s-cancelado'};
+const pillAut=s=>`<span class="pill ${CLASSE_AUT[s]||'s-rascunho'}"><i></i>${s}</span>`;
+function proxNumeroAut(){
+  const n=DB.config.proxAut||1;
+  return `${DB.config.prefixoAut||'AUT'}-${new Date().getFullYear()}-${String(n).padStart(6,'0')}`;
+}
+const vencimentoAut=a=>addDays(a.data,num(a.validade_dias||DB.config.validadeAut||30));
+/* substitui os marcadores dos textos configuráveis da rede */
+function tplRede(t){
+  return String(t||'').replace(/\{telefone\}/g,DB.config.redeTelefone||'')
+    .replace(/\{email\}/g,DB.config.redeEmail||'')
+    .replace(/\{validade\}/g,DB.config.validadeAut||30);
+}
+/* busca de afiliado por nome, código ou CNPJ */
+function buscaAfiliados(q){
+  const ativos=DB.afiliados.filter(a=>a.ativo!==false);
+  if(!q)return ativos.slice(0,25);
+  const t=norm(q),dig=q.replace(/\D/g,'');
+  const pontos=[];
+  ativos.forEach((a,i)=>{
+    const cnpj=String(a.cnpj||'').replace(/\D/g,'');
+    let p=0;
+    if(dig.length>=3&&String(a.codigo)===dig)p=1e5;
+    else if(dig.length>=5&&cnpj.startsWith(dig))p=5e4;
+    else if(dig.length>=3&&String(a.codigo||'').startsWith(dig))p=2e4;
+    if(!p){
+      const alvo=norm([a.razao_social,a.cidade,a.uf].join(' '));
+      if(!t.split(/\s+/).filter(Boolean).every(w=>alvo.includes(w)))return;
+      p=200-Math.min(80,alvo.length/4)+Math.max(0,60-i/200);
+    }
+    pontos.push([p,a]);
+  });
+  return pontos.sort((x,y)=>y[0]-x[0]).map(x=>x[1]);
+}
 const grupos=()=>[...new Set(DB.clientes.map(c=>(c.grupo||'').trim()).filter(Boolean))].sort();
 const grupoDoOrc=o=>cliente(o.cliente_id)?.grupo||'';
 const analista=id=>DB.analistas.find(a=>a.id===id);
@@ -1196,6 +1342,11 @@ const HUB_CARDS=[
  {k:'orc', i:'files',t:'Orçamentos',d:'Filtrar, enviar, baixar em lote e acompanhar status.',
   n:()=>DB.orcamentos.length+' salvos'},
  {k:'dash',i:'chart',t:'Dashboard',d:'Volume, valor orçado, ranking e conversão.'},
+ {k:'novaaut',i:'shield',t:'Nova autorização',d:'Autorização, roteiro e check-list para a oficina afiliada.'},
+ {k:'aut', i:'layers',t:'Autorizações',d:'Documentos emitidos para a rede de credenciados.',
+  n:()=>DB.autorizacoes.length+' emitidas'},
+ {k:'ofi', i:'bank',t:'Oficinas afiliadas',d:'Base de credenciados com busca por nome, código ou CNPJ.',
+  n:()=>DB.afiliados.length.toLocaleString('pt-BR')+' oficinas'},
  {k:'cli', i:'users',t:'Clientes',d:'Logo, consultor e valores de chassi e cola.',n:()=>DB.clientes.length+' cadastrados'},
  {k:'uni', i:'bldg',t:'Unidades',d:'Endereços, contatos e dados de pagamento.',n:()=>DB.unidades.length+' unidades'},
  {k:'prod',i:'box',t:'Produtos',d:'Base de peças e serviços com busca inteligente.',
@@ -3009,7 +3160,7 @@ const Cloud={
   /* ── carga inicial: o servidor é a fonte da verdade ── */
   async pull(){
     const sb=this.sb;
-    const [cfg,ana,cli,uni,emp,orc,ite,his,prod]=await Promise.all([
+    const [cfg,ana,cli,uni,emp,orc,ite,his,prod,afi,auts,hisa]=await Promise.all([
       sb.from('configuracoes').select('dados').eq('id',1).maybeSingle(),
       sb.from('analistas').select('*'),
       sb.from('clientes').select('*'),
@@ -3019,8 +3170,13 @@ const Cloud={
       sb.from('orcamento_itens').select('*').order('ordem'),
       sb.from('historico').select('*').order('data',{ascending:false}),
       sb.from('produtos').select('*'),
+      sb.from('afiliados').select('*'),
+      sb.from('autorizacoes').select('*').order('created_at',{ascending:false}),
+      sb.from('autorizacao_historico').select('*').order('data',{ascending:false}),
     ]);
     const err=[cfg,ana,cli,uni,emp,orc,ite,his,prod].find(r=>r.error);
+    const semRede=[afi,auts,hisa].find(r=>r.error);
+    if(semRede)console.warn('rede de afiliados:',semRede.error.message);
     if(err)throw err.error;
 
     if(cfg.data?.dados)DB.config={...DB.config,...cfgCompartilhada(cfg.data.dados)};
@@ -3063,6 +3219,31 @@ const Cloud={
       subtotal:Number(r.subtotal)||0,instalacao:Number(r.instalacao)||0,total:Number(r.total)||0,
       status:r.status||'Rascunho',validade_dias:r.validade_dias||5,hist:hisOrc[r.id]||[],
       created_at:r.created_at,updated_at:r.updated_at,criado_por:r.criado_por||null}));
+
+    if(afi.data&&afi.data.length)DB.afiliados=afi.data.map(r=>({id:r.id,codigo:r.codigo||'',
+      cnpj:r.cnpj||'',razao_social:r.razao_social,cidade:r.cidade||'',uf:r.uf||'',
+      telefone:r.telefone||'',telefone2:r.telefone2||'',email:r.email||'',contato:r.contato||'',
+      obs:r.obs||'',ativo:r.ativo!==false}));
+    if(auts.data){
+      const hA={};
+      (hisa.data||[]).forEach(h=>(hA[h.autorizacao_id]=hA[h.autorizacao_id]||[]).push({
+        acao:h.acao,usuario:h.usuario||'',data:h.data}));
+      DB.autorizacoes=auts.data.map(r=>({id:r.id,numero:r.numero,data:r.data,
+        n_atendimento:r.n_atendimento||'',unidade_id:r.unidade_id||'',afiliado_id:r.afiliado_id||'',
+        cliente_id:r.cliente_id||'',analista_id:r.analista_id||'',
+        condutor_nome:r.condutor_nome||'',condutor_contato:r.condutor_contato||'',condutor_cpf:r.condutor_cpf||'',
+        placa:r.placa||'',chassi:r.chassi||'',modelo:r.modelo||'',
+        agendamento:r.agendamento||'',hora_agend:r.hora_agend||'',descricao:r.descricao||'',
+        valor_mo:Number(r.valor_mo)||0,valor_peca:Number(r.valor_peca)||0,obs:r.obs||[],
+        status:r.status||'Rascunho',validade_dias:r.validade_dias||30,hist:hA[r.id]||[],
+        created_at:r.created_at,updated_at:r.updated_at}));
+      const maiorA=DB.autorizacoes.reduce((m,a)=>{const n=parseInt(String(a.numero).split('-').pop(),10);
+        return isNaN(n)?m:Math.max(m,n)},0);
+      if(maiorA>=(DB.config.proxAut||1))DB.config.proxAut=maiorA+1;
+      this.idsAut=new Set(DB.autorizacoes.map(a=>a.id));
+      this.sigsAut={};DB.autorizacoes.forEach(a=>this.sigsAut[a.id]=sig(a));
+    }
+    save('afi');save('aut');
 
     /* numeração continua a partir do maior número já usado no servidor */
     const maior=DB.orcamentos.reduce((m,o)=>{const n=parseInt(String(o.numero).split('-').pop(),10);
@@ -3300,13 +3481,15 @@ function cfgCompartilhada(dados){
 /* ── fila de envio com repetição automática ──
    Nada se perde por queda de rede: o que falhou continua na fila e é
    reenviado sozinho a cada 20 s, quando a internet volta ou ao reabrir a aba. */
-let filaEnvio=null,ultimoErro='',pendente={meta:false,orc:false,prod:false},tentativas=0,repetidor=null;
-function pendencias(){return pendente.meta||pendente.orc||pendente.prod}
+let filaEnvio=null,ultimoErro='',pendente={meta:false,orc:false,prod:false,afi:false,aut:false},tentativas=0,repetidor=null;
+function pendencias(){return pendente.meta||pendente.orc||pendente.prod||pendente.afi||pendente.aut}
 function sincronizar(part){
   if(!Cloud.pronto())return;
   if(part==='meta')pendente.meta=true;
   if(part==='orc')pendente.orc=true;
   if(part==='prod'&&DB.config.prodDirty)pendente.prod=true;
+  if(part==='afi')pendente.afi=true;
+  if(part==='aut')pendente.aut=true;
   clearTimeout(filaEnvio);
   filaEnvio=setTimeout(enviarAgora,700);
 }
@@ -3318,6 +3501,8 @@ async function enviarAgora(){
     if(pendente.prod){await Cloud.pushProdutos();pendente.prod=false}
     if(pendente.meta){await Cloud.pushMeta();pendente.meta=false}
     if(pendente.orc){await Cloud.pushOrcs();pendente.orc=false}
+    if(pendente.afi){await Cloud.pushAfiliados();pendente.afi=false}
+    if(pendente.aut){await Cloud.pushAuts();pendente.aut=false}
     ultimoErro='';tentativas=0;clearTimeout(repetidor);repetidor=null;marcaSync('ok');
   }catch(e){
     ultimoErro=e.message||String(e);
@@ -3550,7 +3735,7 @@ let cfgTab='geral';
 function vCfg(){
   const c=DB.config;
   const TABS=[['geral','Geral'],['pdf','PDF e instalação'],['mail','E-mail'],['integ','Integrações'],
-    ['team','Equipe'],['seg','Acessos'],['nuvem','Nuvem e equipe'],['dados','Dados e backup']];
+    ['team','Equipe'],['afi','Rede de afiliados'],['seg','Acessos'],['nuvem','Nuvem e equipe'],['dados','Dados e backup']];
   $('#view').innerHTML=`<div class="tabs">${TABS.map(([k,t])=>`<button class="tab ${cfgTab===k?'on':''}" data-t="${k}">${t}</button>`).join('')}</div><div id="cfgBody"></div>`;
   $$('[data-t]').forEach(b=>b.onclick=()=>{cfgTab=b.dataset.t;vCfg()});
   const body=$('#cfgBody');
@@ -3762,6 +3947,58 @@ function vCfg(){
     })();
     return;
   }
+  if(cfgTab==='afi'){
+    body.innerHTML=`<div class="grid g2" style="align-items:start">
+      <div class="card"><div class="card-h"><div><h3>Identificação da rede</h3>
+        <p>Contatos impressos nos documentos enviados às oficinas</p></div></div>
+        <div class="card-b grid" style="gap:14px">
+          ${F('rTel','Telefone da Rede de Afiliados',c.redeTelefone)}
+          ${F('rMail','E-mail de credenciamento',c.redeEmail)}
+          <div class="grid g3" style="gap:12px">
+            ${F('rPre','Prefixo',c.prefixoAut,'AUT')}
+            ${F('rProx','Próximo número',c.proxAut,'1','Próxima: '+proxNumeroAut())}
+            ${F('rVal','Validade (dias)',c.validadeAut)}
+          </div>
+        </div></div>
+      <div class="card"><div class="card-h"><div><h3>Avisos dos documentos</h3>
+        <p>Textos fixos da autorização de serviço</p></div></div>
+        <div class="card-b grid" style="gap:14px">
+          ${T('rChassi','Aviso de conferência de chassi',c.autAvisoChassi)}
+          ${T('rFotos','Aviso sobre fotos do atendimento',c.autAvisoFotos)}
+        </div></div></div>
+      <div class="card" style="margin-top:16px"><div class="card-h"><div><h3>Condições gerais</h3>
+        <p>Impressas ao final da autorização — uma condição por linha</p></div></div>
+        <div class="card-b">${T('rCond','Condições',c.autCondicoes,
+          'Marcadores disponíveis: <b>{validade}</b>, <b>{telefone}</b> e <b>{email}</b>.')}</div></div>
+      <div class="card" style="margin-top:16px"><div class="card-h"><div style="flex:1"><h3>Roteiro de atendimento</h3>
+        <p>Documento fixo enviado a toda a rede. Linhas iniciadas por ## viram títulos de seção</p></div>
+        <button class="btn sm" id="rPrev">${ico('eye')}Pré-visualizar PDF</button>
+        <button class="btn sm" id="rReset">${ico('refresh')}Texto padrão</button></div>
+        <div class="card-b"><textarea class="inp" id="rTexto" style="min-height:300px;font-size:12.5px;line-height:1.6">${esc(c.roteiroTexto||ROTEIRO_PADRAO)}</textarea></div></div>
+      <div class="row" style="margin-top:16px"><button class="btn pri" id="cSave">${ico('save')}Salvar configurações</button></div>`;
+    $('#rReset').onclick=()=>{$('#rTexto').value=ROTEIRO_PADRAO;toast('Texto padrão restaurado — salve para aplicar')};
+    $('#rPrev').onclick=async()=>{
+      const antes=DB.config.roteiroTexto;DB.config.roteiroTexto=$('#rTexto').value;
+      const falso={id:'previa',numero:proxNumeroAut(),data:today(),placa:'',validade_dias:c.validadeAut,
+        analista_id:'',hist:[],obs:[]};
+      const r=await gerarDocAut(falso,'roteiro',false);
+      DB.config.roteiroTexto=antes;
+      if(!r)return;
+      const url=URL.createObjectURL(r.blob);
+      modal({title:'Prévia do roteiro',wide:'xl',
+        body:`<iframe src="${url}" style="width:100%;height:68vh;border:1px solid var(--line);border-radius:10px"></iframe>`,
+        footer:`<button class="btn" data-close>Fechar</button>`});
+    };
+    $('#cSave').onclick=()=>{
+      const g=id=>$('#'+id).value.trim();
+      Object.assign(c,{redeTelefone:g('rTel'),redeEmail:g('rMail'),
+        prefixoAut:(g('rPre')||'AUT').toUpperCase(),proxAut:Math.max(1,parseInt(g('rProx'))||1),
+        validadeAut:Math.max(1,parseInt(g('rVal'))||30),autAvisoChassi:$('#rChassi').value,
+        autAvisoFotos:$('#rFotos').value,autCondicoes:$('#rCond').value,roteiroTexto:$('#rTexto').value});
+      save('meta');toast('Configurações da rede salvas');vCfg();
+    };
+    return;
+  }
   if(cfgTab==='nuvem'){
     const c2=Cloud.cfg(),fixo=!!SUPABASE.url;
     body.innerHTML=`<div class="grid g2" style="align-items:start">
@@ -3795,6 +4032,7 @@ function vCfg(){
             <span style="color:var(--warn);display:flex">${ico('alert')}</span>
             <span class="tiny">A base de peças ainda não está no servidor. Cada pessoa está usando a
             cópia embarcada no arquivo. Envie uma vez para que edições e novos itens valham para a equipe.</span></div>`:''}
+          <button class="btn block" id="sbAfi" ${Cloud.pronto()?'':'disabled'}>${ico('bank')}Enviar rede de afiliados (${DB.afiliados.length.toLocaleString('pt-BR')} oficinas)</button>
           <button class="btn block" id="sbPull" ${Cloud.pronto()?'':'disabled'}>${ico('dl')}Baixar tudo do servidor</button>
           <button class="btn block" id="sbRest">${ico('refresh')}Restaurar catálogo de peças do arquivo (${SEED_TOTAL.toLocaleString('pt-BR')} itens)</button>
           <div id="sbProg" class="tiny muted"></div>
@@ -3824,6 +4062,11 @@ function vCfg(){
       try{await Cloud.pushProdutos((f,t)=>{$('#sbProg').textContent=`Enviando peças… ${f.toLocaleString('pt-BR')} de ${t.toLocaleString('pt-BR')}`});
         $('#sbProg').textContent='Base de peças enviada.';toast('Base de peças no servidor')}
       catch(e){$('#sbProg').textContent='Falha: '+e.message;toast('Falha: '+e.message,'err')}};
+    $('#sbAfi').onclick=async()=>{
+      try{const n=await Cloud.pushAfiliados((f,t)=>{$('#sbProg').textContent=`Enviando oficinas… ${f.toLocaleString('pt-BR')} de ${t.toLocaleString('pt-BR')}`});
+        await Cloud.pushAuts();
+        $('#sbProg').textContent=n.toLocaleString('pt-BR')+' oficinas no servidor.';toast('Rede de afiliados enviada')}
+      catch(e){$('#sbProg').textContent='Falha: '+e.message;toast('Falha: '+e.message,'err')}};
     $('#sbRest').onclick=async()=>{
       $('#sbProg').textContent='Restaurando catálogo…';
       const add=await restaurarBaseEmbarcada();
@@ -3846,7 +4089,9 @@ function vCfg(){
           ${[['Clientes',DB.clientes.length,DB.clientes],['Unidades',DB.unidades.length,DB.unidades],
              ['Empresas',DB.empresas.length,DB.empresas],
              ['Consultores',DB.analistas.length,DB.analistas],['Produtos',DB.produtos.length,DB.produtos],
-             ['Orçamentos',DB.orcamentos.length,DB.orcamentos]].map(([n,q,v])=>
+             ['Orçamentos',DB.orcamentos.length,DB.orcamentos],
+             ['Oficinas afiliadas',DB.afiliados.length,DB.afiliados],
+             ['Autorizações',DB.autorizacoes.length,DB.autorizacoes]].map(([n,q,v])=>
             `<div class="row" style="justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line-2)">
               <span>${n}</span><span class="muted tiny">${q.toLocaleString('pt-BR')} registros · ${size(v)}</span></div>`).join('')}
           <div class="row" style="gap:8px;margin-top:6px">
@@ -3882,6 +4127,7 @@ function vCfg(){
           DB.config={...DEFCFG,...j.config};DB.clientes=j.clientes||[];DB.unidades=j.unidades||[];
           DB.analistas=j.analistas||[];DB.produtos=j.produtos||[];DB.orcamentos=j.orcamentos||[];
           DB.empresas=j.empresas&&j.empresas.length?j.empresas:clone(SEED_EMPRESAS);
+          DB.afiliados=j.afiliados||[];DB.autorizacoes=j.autorizacoes||[];save('afi');save('aut');
           save('meta');save('prod');save('orc');shell();toast('Backup restaurado');vCfg();
         }catch(e){toast('Falha: '+e.message,'err')}};fr.readAsText(f)};i.click();
     };
@@ -3979,6 +4225,998 @@ function anForm(a){
       };
     }});
 }
+</script>
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   REDE DE AFILIADOS
+   Um atendimento gera três documentos ligados ao mesmo registro:
+   · Roteiro de atendimento — texto fixo, igual para toda a rede
+   · Autorização de serviço — preenchida com os dados do atendimento
+   · Check-list de entrada  — impresso em branco para a oficina preencher
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ───────────── OFICINAS AFILIADAS ───────────── */
+let ofiPage=0, ofiUF='';
+function vOfi(){
+  $('#topActions').innerHTML=`<button class="btn" id="ofImp">${ico('up')}Importar base</button>
+    <button class="btn pri" id="ofNovo">${ico('plus')}Nova oficina</button>`;
+  $('#ofNovo').onclick=()=>ofiForm(null,()=>vOfi());
+  $('#ofImp').onclick=importarAfiliados;
+  if(!DB.afiliados.length){
+    $('#view').innerHTML=`<div class="card"><div class="empty">${ico('bank')}
+      <h4>Nenhuma oficina afiliada cadastrada</h4>
+      <p>Importe a planilha da rede de credenciados para que a busca por nome, código ou CNPJ
+      funcione na emissão das autorizações. O arquivo <b>base_afiliados_autoglass.csv</b> acompanha o sistema.</p>
+      <div class="row" style="justify-content:center;gap:9px">
+        <button class="btn pri" onclick="importarAfiliados()">${ico('up')}Importar base</button>
+        <button class="btn" onclick="ofiForm(null,vOfi)">${ico('plus')}Cadastrar manualmente</button></div>
+      </div></div>`;
+    return;
+  }
+  const ufs=[...new Set(DB.afiliados.map(a=>a.uf).filter(Boolean))].sort();
+  $('#view').innerHTML=`<div class="card">
+    <div class="card-h"><div style="flex:1"><h3>Rede de afiliados</h3>
+      <p>${DB.afiliados.length.toLocaleString('pt-BR')} oficinas credenciadas</p></div>
+      <select class="inp" id="ofUF" style="width:140px"><option value="">Todos os estados</option>
+        ${ufs.map(u=>`<option ${ofiUF===u?'selected':''}>${u}</option>`).join('')}</select>
+      <div class="ac" style="position:relative;width:280px">
+        <span style="position:absolute;left:11px;top:10px;color:var(--ink-4);display:flex">${ico('srch')}</span>
+        <input class="inp" id="ofq" placeholder="Nome, código, CNPJ ou cidade…" style="padding-left:36px"></div></div>
+    <div id="ofLista"></div></div>`;
+  const draw=()=>{
+    const q=$('#ofq').value.trim();
+    let lista=q?buscaAfiliados(q):DB.afiliados;
+    if(ofiUF)lista=lista.filter(a=>a.uf===ofiUF);
+    const por=40,pags=Math.ceil(lista.length/por)||1;ofiPage=Math.min(ofiPage,pags-1);
+    const pg=lista.slice(ofiPage*por,ofiPage*por+por);
+    $('#ofLista').innerHTML=lista.length?`<div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th style="width:92px">Código</th><th>Razão social</th><th style="width:170px">CNPJ</th>
+      <th>Cidade / UF</th><th>Telefone</th><th class="num" style="width:110px">Autorizações</th>
+      <th style="width:40px"></th></tr></thead>
+      <tbody>${pg.map(a=>{const n=DB.autorizacoes.filter(x=>x.afiliado_id===a.id).length;
+        return `<tr data-id="${a.id}" style="cursor:pointer">
+        <td><b class="mono tiny">${esc(a.codigo||'—')}</b></td>
+        <td><b>${esc(a.razao_social)}</b>${a.ativo===false?' <span class="tag" style="background:var(--grey-bg);color:var(--grey)">inativa</span>':''}</td>
+        <td class="tiny mono">${esc(mkCNPJ(a.cnpj)||'—')}</td>
+        <td class="tiny">${esc(a.cidade||'—')}${a.uf?' · '+esc(a.uf):''}</td>
+        <td class="tiny">${esc(mkTel(a.telefone)||'—')}</td>
+        <td class="num">${n||'<span class="muted">—</span>'}</td>
+        <td><button class="icobtn" data-m="${a.id}" style="border:0;width:28px;height:28px">${ico('dots')}</button></td>
+      </tr>`}).join('')}</tbody></table></div>
+      <div class="row" style="padding:12px 20px;border-top:1px solid var(--line-2)">
+        <span class="tiny muted">${lista.length.toLocaleString('pt-BR')} resultado(s) · página ${ofiPage+1} de ${pags}</span>
+        <div class="spacer"></div>
+        <button class="btn sm" id="ofPrev" ${ofiPage?'':'disabled'}>Anterior</button>
+        <button class="btn sm" id="ofNext" ${ofiPage<pags-1?'':'disabled'}>Próxima</button></div>`
+      :`<div class="empty tiny">Nenhuma oficina encontrada para essa busca.</div>`;
+    $('#ofPrev')&&($('#ofPrev').onclick=()=>{ofiPage--;draw()});
+    $('#ofNext')&&($('#ofNext').onclick=()=>{ofiPage++;draw()});
+    $$('#ofLista tr[data-id]').forEach(tr=>tr.onclick=e=>{if(e.target.closest('button'))return;
+      ofiForm(afiliado(tr.dataset.id),()=>vOfi())});
+    $$('#ofLista [data-m]').forEach(b=>b.onclick=e=>{e.stopPropagation();const a=afiliado(b.dataset.m);
+      popMenu(b,[{k:'e',label:'Editar',icon:'edit',fn:()=>ofiForm(a,()=>vOfi())},
+        {k:'n',label:'Nova autorização',icon:'shield',fn:()=>{A=novaAutorizacao();A.afiliado_id=a.id;go('novaaut')}},
+        {k:'c',label:'Copiar dados',icon:'copy',fn:()=>copiar(
+          [a.razao_social,'Código: '+(a.codigo||'—'),'CNPJ: '+(mkCNPJ(a.cnpj)||'—'),
+           [a.cidade,a.uf].filter(Boolean).join(' · '),mkTel(a.telefone)].filter(Boolean).join('\n'),'Dados copiados')},
+        {k:'t',label:a.ativo===false?'Reativar':'Inativar',icon:'refresh',
+          fn:()=>{a.ativo=a.ativo===false;save('afi');vOfi()}},
+        '-',{k:'d',label:'Excluir',icon:'trash',danger:true,fn:async()=>{
+          if(DB.autorizacoes.some(x=>x.afiliado_id===a.id)){toast('Oficina usada em autorizações','err');return}
+          if(await confirmar('Excluir oficina','Excluir '+esc(a.razao_social)+'?','Excluir')){
+            DB.afiliados=DB.afiliados.filter(x=>x.id!==a.id);save('afi');vOfi()}}}]);
+    });
+  };
+  draw();
+  $('#ofq').oninput=debounce(()=>{ofiPage=0;draw()},200);
+  $('#ofUF').onchange=()=>{ofiUF=$('#ofUF').value;ofiPage=0;draw()};
+}
+function ofiForm(a,done){
+  const n=!a;
+  a=a?{...a}:{id:uid(),codigo:'',cnpj:'',razao_social:'',cidade:'',uf:'',telefone:'',telefone2:'',
+    email:'',contato:'',obs:'',ativo:true};
+  modal({title:n?'Nova oficina afiliada':'Editar oficina',sub:'Os dados saem impressos na autorização de serviço',wide:'wide',
+    body:`<div class="grid" style="gap:14px">
+      <div class="grid" style="grid-template-columns:120px 1fr 190px;gap:12px">
+        <label class="f"><span>Código</span><input class="inp" id="fCod" value="${esc(a.codigo)}" placeholder="424960"></label>
+        <label class="f"><span>Razão social <i>*</i></span><input class="inp" id="fRs" value="${esc(a.razao_social)}"></label>
+        <label class="f"><span>CNPJ</span><input class="inp" id="fCn" value="${esc(mkCNPJ(a.cnpj))}" placeholder="00.000.000/0000-00"></label>
+      </div>
+      <div class="grid" style="grid-template-columns:1fr 80px 1fr 1fr;gap:12px">
+        <label class="f"><span>Cidade</span><input class="inp" id="fCi" value="${esc(a.cidade)}"></label>
+        <label class="f"><span>UF</span><input class="inp" id="fUf" maxlength="2" value="${esc(a.uf)}" style="text-transform:uppercase"></label>
+        <label class="f"><span>Telefone</span><input class="inp" id="fTe" value="${esc(mkTel(a.telefone))}"></label>
+        <label class="f"><span>Telefone alternativo</span><input class="inp" id="fTe2" value="${esc(mkTel(a.telefone2))}"></label>
+      </div>
+      <div class="grid g2" style="gap:12px">
+        <label class="f"><span>Contato</span><input class="inp" id="fCt" value="${esc(a.contato)}" placeholder="Pessoa responsável"></label>
+        <label class="f"><span>E-mail</span><input class="inp" id="fEm" value="${esc(a.email)}"></label>
+      </div>
+      <label class="f"><span>Observações</span><textarea class="inp" id="fOb" style="min-height:62px">${esc(a.obs)}</textarea></label>
+      <label class="chk ${a.ativo!==false?'on':''}" id="fLat"><input type="checkbox" id="fAt" ${a.ativo!==false?'checked':''}>
+        <span><b>Oficina ativa</b><small>Oficinas inativas não aparecem na busca da autorização</small></span></label>
+    </div>`,
+    footer:`<button class="btn" data-close>Cancelar</button><button class="btn pri" id="fOk">${ico('save')}Salvar oficina</button>`,
+    onMount(ov,close){
+      mask(ov.querySelector('#fCn'),mkCNPJ);mask(ov.querySelector('#fTe'),mkTel);mask(ov.querySelector('#fTe2'),mkTel);
+      ov.querySelector('#fAt').onchange=e=>ov.querySelector('#fLat').classList.toggle('on',e.target.checked);
+      ov.querySelector('#fOk').onclick=()=>{
+        const g=id=>ov.querySelector('#'+id).value.trim();
+        if(!g('fRs')){toast('Informe a razão social','err');return}
+        Object.assign(a,{codigo:g('fCod'),razao_social:g('fRs'),cnpj:g('fCn').replace(/\D/g,''),
+          cidade:g('fCi'),uf:g('fUf').toUpperCase(),telefone:g('fTe'),telefone2:g('fTe2'),
+          contato:g('fCt'),email:g('fEm'),obs:g('fOb'),ativo:ov.querySelector('#fAt').checked});
+        const i=DB.afiliados.findIndex(x=>x.id===a.id);
+        i<0?DB.afiliados.unshift(a):DB.afiliados[i]=a;
+        save('afi');close();toast(n?'Oficina cadastrada':'Oficina atualizada');done&&done(a);
+      };
+    }});
+}
+function importarAfiliados(){
+  modal({title:'Importar rede de afiliados',sub:'CSV separado por ; ou , (também aceita TSV)',
+    body:`<p style="color:var(--ink-2);line-height:1.7">O arquivo precisa de uma linha de cabeçalho com, no mínimo,
+      a coluna <b>razao_social</b> (ou <b>nome</b>). As demais são opcionais: <b>codigo</b>, <b>cnpj</b>,
+      <b>cidade</b>, <b>uf</b>, <b>telefone</b>, <b>telefone2</b>, <b>email</b>.</p>
+      <code style="display:block;background:var(--code-bg);padding:11px;border-radius:9px;margin:12px 0;font-size:11.5px;white-space:pre">codigo;cnpj;uf;cidade;razao_social;telefone;telefone2
+424960;11252320000155;AP;Macapa;PLANALTO AUTO VIDROS;96981423030;</code>
+      <label class="chk on" id="lMgA"><input type="checkbox" id="iMgA" checked>
+        <span><b>Atualizar oficinas já cadastradas</b><small>O código, ou o CNPJ quando não houver código, identifica a oficina</small></span></label>
+      <div class="logo-box" id="dzA" style="height:120px;margin-top:14px"><div class="ph">${ico('up')}
+        Clique para escolher o arquivo CSV</div></div>`,
+    footer:`<button class="btn" data-close>Fechar</button>`,
+    onMount(ov,close){
+      ov.querySelector('#dzA').onclick=()=>{
+        const inp=document.createElement('input');inp.type='file';inp.accept='.csv,.tsv,.txt';
+        inp.onchange=()=>{const f=inp.files[0];if(!f)return;
+          const fr=new FileReader();
+          fr.onload=()=>{try{
+            const r=parseCSVAfiliados(String(fr.result),ov.querySelector('#iMgA').checked);
+            close();toast(`${r.add} adicionadas · ${r.upd} atualizadas`);vOfi();
+          }catch(e){toast('Falha ao importar: '+e.message,'err')}};
+          fr.readAsText(f,'utf-8');
+        };inp.click();
+      };
+    }});
+}
+function parseCSVAfiliados(texto,merge){
+  texto=texto.replace(/^\uFEFF/,'').replace(/\r/g,'');
+  const linhas=texto.split('\n').filter(l=>l.trim());
+  if(linhas.length<2)throw new Error('arquivo vazio');
+  const sep=[';','\t',','].map(s=>[s,linhas[0].split(s).length]).sort((a,b)=>b[1]-a[1])[0][0];
+  const corta=l=>{const out=[];let cur='',q=false;
+    for(const ch of l){if(ch==='"')q=!q;else if(ch===sep&&!q){out.push(cur);cur=''}else cur+=ch}
+    out.push(cur);return out.map(x=>x.trim())};
+  const H=corta(linhas[0]).map(h=>norm(h).replace(/[^A-Z0-9]/g,''));
+  const ix=(...nomes)=>{for(const n of nomes){const i=H.findIndex(h=>h.startsWith(n));if(i>=0)return i}return -1};
+  const iN=ix('RAZAOSOCIAL','NOMECLIENTE','NOME','RAZAO'),iC=ix('CODCLIENTE','CODIGO','COD'),
+    iJ=ix('CNPJ'),iCi=ix('CIDADECLIENTE','CIDADE'),iU=ix('UFCLIENTE','UF','ESTADO'),
+    iT=ix('TELEFONECELULAR','TELEFONE','TEL','FONE'),iT2=ix('TELEFONECOMERCIAL','TELEFONE2'),iE=ix('EMAIL');
+  if(iN<0)throw new Error('coluna de razão social não encontrada');
+  const porCod={},porCnpj={};
+  DB.afiliados.forEach(a=>{if(a.codigo)porCod[String(a.codigo)]=a;
+    const j=String(a.cnpj||'').replace(/\D/g,'');if(j)porCnpj[j]=a});
+  let add=0,upd=0;
+  for(let i=1;i<linhas.length;i++){
+    const f=corta(linhas[i]);
+    const nome=(f[iN]||'').trim();if(!nome)continue;
+    const cod=iC>=0?String(f[iC]||'').trim():'';
+    const cnpj=iJ>=0?String(f[iJ]||'').replace(/\D/g,''):'';
+    const dados={codigo:cod,cnpj,razao_social:nome,
+      cidade:iCi>=0?String(f[iCi]||'').trim():'',uf:iU>=0?String(f[iU]||'').trim().toUpperCase().slice(0,2):'',
+      telefone:iT>=0?String(f[iT]||'').trim():'',telefone2:iT2>=0?String(f[iT2]||'').trim():'',
+      email:iE>=0?String(f[iE]||'').trim():'',ativo:true};
+    const ja=(cod&&porCod[cod])||(cnpj&&porCnpj[cnpj]);
+    if(ja){if(merge){Object.assign(ja,dados);upd++}}
+    else{const novo={id:uid(),contato:'',obs:'',...dados};DB.afiliados.push(novo);
+      if(cod)porCod[cod]=novo; if(cnpj)porCnpj[cnpj]=novo; add++}
+  }
+  save('afi');return{add,upd};
+}
+
+/* ───────────── LISTA DE AUTORIZAÇÕES ───────────── */
+let aF={q:'',st:[],uni:[],de:'',ate:''}, selAut=new Set();
+function vAut(){
+  $('#topActions').innerHTML=`<button class="btn pri" onclick="go('novaaut')">${ico('plus')}Nova autorização</button>`;
+  const inc=(arr,v)=>!arr.length||arr.includes(v);
+  const lista=DB.autorizacoes.filter(a=>{
+    const of=afiliado(a.afiliado_id);
+    const hay=norm([a.numero,a.placa,a.n_atendimento,a.condutor_nome,a.modelo,
+      of?.razao_social,of?.codigo,of?.cidade].join(' '));
+    return (!aF.q||hay.includes(norm(aF.q)))&&inc(aF.st,a.status)&&inc(aF.uni,a.unidade_id)
+      &&(!aF.de||a.data>=aF.de)&&(!aF.ate||a.data<=aF.ate);
+  }).sort((x,y)=>y.created_at.localeCompare(x.created_at));
+  const OPCA={st:()=>STATUS_AUT.map(s=>({v:s,t:s})),
+    uni:()=>DB.unidades.map(u=>({v:u.id,t:u.codigo+' · '+u.cidade}))};
+  $('#view').innerHTML=`
+  <div class="card pad" style="margin-bottom:16px">
+    <div class="row">
+      <div class="ac" style="flex:2;min-width:230px;position:relative">
+        <span style="position:absolute;left:12px;top:11px;color:var(--ink-4);display:flex">${ico('srch')}</span>
+        <input class="inp" id="aq" placeholder="Buscar por número, placa, atendimento, oficina ou condutor…" value="${esc(aF.q)}" style="padding-left:38px">
+      </div>
+      ${botaoFiltro('st','Status',aF.st,OPCA.st())}
+      ${botaoFiltro('uni','Unidade',aF.uni,OPCA.uni())}
+      <input type="date" class="inp" data-af="de" value="${aF.de}" style="width:150px" title="A partir de">
+      <input type="date" class="inp" data-af="ate" value="${aF.ate}" style="width:150px" title="Até">
+      <div class="spacer"></div>
+      <span class="muted tiny">${lista.length} de ${DB.autorizacoes.length}</span>
+    </div>
+  </div>
+  <div class="card">
+    ${lista.length?`<div class="tbl-wrap"><table class="tbl">
+      <thead><tr><th class="ck"><input type="checkbox" id="ckAllA"></th><th>Número</th><th>Oficina afiliada</th>
+      <th>Veículo</th><th>Unidade</th><th>Data</th><th class="num">Valor</th><th>Status</th><th style="width:44px"></th></tr></thead>
+      <tbody>${lista.map(a=>{const of=afiliado(a.afiliado_id),u=unidade(a.unidade_id);
+        return `<tr data-id="${a.id}">
+        <td class="ck"><input type="checkbox" class="ckA" data-id="${a.id}" ${selAut.has(a.id)?'checked':''}></td>
+        <td><b class="mono">${a.numero}</b><div class="tiny muted">${a.n_atendimento?'Atend. '+esc(a.n_atendimento):'sem nº de atendimento'}</div></td>
+        <td><span class="trunc" style="max-width:220px">${esc(of?.razao_social||'—')}</span>
+          <div class="tiny muted">${esc([of?.codigo,of?.cidade,of?.uf].filter(Boolean).join(' · '))}</div></td>
+        <td class="tiny"><b>${esc(a.placa||'—')}</b><div class="muted">${esc(a.modelo||'')}</div></td>
+        <td class="tiny">${esc(u?.codigo||'—')}<div class="muted">${esc(u?.cidade||'')}</div></td>
+        <td class="tiny">${dBR(a.data)}<div class="muted">${a.agendamento?'ag. '+dBR(a.agendamento):''}</div></td>
+        <td class="num">${money(num(a.valor_mo)+num(a.valor_peca))}</td>
+        <td>${pillAut(a.status)}</td>
+        <td><button class="icobtn" data-ma="${a.id}" style="border:0;width:28px;height:28px">${ico('dots')}</button></td>
+      </tr>`}).join('')}</tbody></table></div>`
+    :`<div class="empty">${ico('layers')}<h4>Nenhuma autorização emitida</h4>
+      <p>${DB.autorizacoes.length?'Ajuste os filtros para ver outros resultados.'
+        :'Emita a primeira autorização de serviço para uma oficina da rede de afiliados.'}</p>
+      <button class="btn pri" onclick="go('novaaut')">${ico('plus')}Nova autorização</button></div>`}
+  </div>
+  <div id="bulkAut"></div>`;
+  const q=$('#aq');q.oninput=debounce(()=>{aF.q=q.value;const p=q.selectionStart;vAut();
+    const n=$('#aq');n.focus();n.selectionStart=n.selectionEnd=p},260);
+  $$('[data-af]').forEach(el=>el.onchange=()=>{aF[el.dataset.af]=el.value;vAut()});
+  $$('#view [data-multi]').forEach(b=>b.onclick=e=>{e.stopPropagation();const k=b.dataset.multi;
+    multiFiltro(b,k==='st'?'Status':'Unidade',OPCA[k](),aF[k],vals=>{aF[k]=vals;selAut.clear();vAut()})});
+  const ck=$('#ckAllA');
+  if(ck){ck.checked=lista.length&&lista.every(a=>selAut.has(a.id));
+    ck.onchange=()=>{lista.forEach(a=>ck.checked?selAut.add(a.id):selAut.delete(a.id));vAut()}}
+  $$('.ckA').forEach(c=>c.onchange=()=>{c.checked?selAut.add(c.dataset.id):selAut.delete(c.dataset.id);bulkAut()});
+  $$('[data-ma]').forEach(b=>b.onclick=e=>{e.stopPropagation();menuAut(b,b.dataset.ma)});
+  $$('#view .tbl tbody tr').forEach(tr=>tr.onclick=e=>{if(e.target.closest('input,button'))return;go('novaaut',tr.dataset.id)});
+  bulkAut();
+}
+function bulkAut(){
+  const b=$('#bulkAut');if(!b)return;
+  if(!selAut.size){b.innerHTML='';return}
+  b.innerHTML=`<div class="bulk"><b>${selAut.size} selecionada${selAut.size>1?'s':''}</b>
+    <div class="spacer"></div>
+    <button class="btn sm" data-b="kit">${ico('dl')}Baixar kit completo</button>
+    <button class="btn sm" data-b="st">${ico('tag')}Alterar status</button>
+    <button class="btn sm" data-b="del">${ico('trash')}Excluir</button>
+    <button class="btn sm" data-b="clr">${ico('x')}Limpar</button></div>`;
+  b.querySelector('[data-b="clr"]').onclick=()=>{selAut.clear();vAut()};
+  b.querySelector('[data-b="kit"]').onclick=()=>baixarKits([...selAut]);
+  b.querySelector('[data-b="st"]').onclick=e=>popMenu(e.currentTarget,STATUS_AUT.map(s=>({k:s,label:s,icon:'tag',
+    fn:()=>{[...selAut].forEach(id=>{const a=aut(id);if(a.status!==s){a.status=s;histAut(a,'Status alterado para "'+s+'"')}});
+      save('aut');toast(selAut.size+' autorização(ões) atualizadas');vAut()}})));
+  b.querySelector('[data-b="del"]').onclick=async()=>{
+    if(await confirmar('Excluir autorizações',`Excluir ${selAut.size} autorização(ões)? Esta ação não pode ser desfeita.`,'Excluir')){
+      DB.autorizacoes=DB.autorizacoes.filter(a=>!selAut.has(a.id));save('aut');
+      toast(selAut.size+' excluída(s)');selAut.clear();vAut()}};
+}
+function menuAut(btn,id){
+  const a=aut(id);
+  popMenu(btn,[
+    {k:'ed',label:'Abrir / editar',icon:'edit',fn:()=>go('novaaut',id)},
+    '-',
+    {k:'p1',label:'Roteiro de atendimento',icon:'files',fn:()=>gerarDocAut(a,'roteiro')},
+    {k:'p2',label:'Autorização de serviço',icon:'shield',fn:()=>gerarDocAut(a,'autorizacao')},
+    {k:'p3',label:'Check-list de entrada',icon:'chk',fn:()=>gerarDocAut(a,'checklist')},
+    {k:'p4',label:'Kit completo (3 documentos)',icon:'layers',fn:()=>gerarDocAut(a,'kit')},
+    '-',
+    {k:'mail',label:'Enviar por e-mail',icon:'mail',fn:()=>mailAut(a)},
+    {k:'wa',label:'Enviar por WhatsApp',icon:'wa',fn:()=>waAut(a)},
+    {k:'dup',label:'Duplicar',icon:'copy',fn:()=>duplicarAut(a)},
+    {k:'hist',label:'Histórico',icon:'clock',fn:()=>histModalAut(a)},
+    '-',
+    {k:'st',label:'Alterar status',icon:'tag',fn:()=>setTimeout(()=>popMenu(btn,STATUS_AUT.map(s=>({k:s,label:s,icon:'tag',
+      fn:()=>{a.status=s;histAut(a,'Status alterado para "'+s+'"');save('aut');toast('Status: '+s);vAut()}}))),10)},
+    {k:'del',label:'Excluir',icon:'trash',danger:true,fn:async()=>{
+      if(await confirmar('Excluir autorização',`Excluir ${a.numero}?`,'Excluir')){
+        DB.autorizacoes=DB.autorizacoes.filter(x=>x.id!==id);save('aut');toast('Autorização excluída');vAut()}}},
+  ]);
+}
+function histAut(a,acao){a.hist=a.hist||[];a.hist.unshift({acao,usuario:DB.config.usuario,data:new Date().toISOString()})}
+function histModalAut(a){
+  modal({title:'Histórico · '+a.numero,sub:(a.hist||[]).length+' registro(s)',
+    body:(a.hist||[]).length?`<div class="hist">${a.hist.map(h=>`<div class="hist-i"><div class="hist-d"></div>
+      <div><b>${esc(h.acao)}</b><small>${dtBR(h.data)} · ${esc(h.usuario||'')}</small></div></div>`).join('')}</div>`
+      :'<div class="empty tiny">Nenhum evento registrado.</div>',
+    footer:`<button class="btn" data-close>Fechar</button>`});
+}
+function duplicarAut(a){
+  const n={...clone(a),id:uid(),numero:proxNumeroAut(),status:'Rascunho',data:today(),
+    created_at:new Date().toISOString(),hist:[]};
+  DB.config.proxAut=(DB.config.proxAut||1)+1;
+  histAut(n,'Duplicada de '+a.numero);
+  DB.autorizacoes.unshift(n);save('aut');save('meta');toast('Duplicada como '+n.numero);go('novaaut',n.id);
+}
+
+/* ───────────── CONSTRUTOR DA AUTORIZAÇÃO ───────────── */
+let A=null;
+function novaAutorizacao(){
+  const an=DB.analistas.find(x=>norm(x.nome)===norm(DB.config.usuario));
+  return {id:uid(),numero:proxNumeroAut(),data:today(),n_atendimento:'',
+    unidade_id:DB.config.unidadePadrao||'',afiliado_id:'',cliente_id:DB.config.clientePadrao||'',
+    analista_id:an?.id||'',condutor_nome:'',condutor_contato:'',condutor_cpf:'',
+    placa:'',chassi:'',modelo:'',agendamento:'',hora_agend:'',
+    descricao:'',valor_mo:0,valor_peca:0,obs:[],status:'Rascunho',
+    validade_dias:DB.config.validadeAut||30,hist:[],created_at:new Date().toISOString(),novo:true};
+}
+const OBS_AUT=['Veículo com película aplicada no vidro.',
+  'Necessário recalibrar a câmera do sistema ADAS após a instalação.',
+  'Peça entregue na oficina por nota fiscal de simples remessa.',
+  'Condutor orientado a retirar objetos pessoais do veículo.'];
+
+function vNovaAut(id){
+  if(id){const o=aut(id);if(!o){toast('Autorização não encontrada','err');return go('aut')}A=clone(o);A.novo=false}
+  else if(!A||!A.novo)A=novaAutorizacao();
+  if(!DB.afiliados.length){
+    $('#view').innerHTML=`<div class="card"><div class="empty">${ico('bank')}
+      <h4>Cadastre as oficinas afiliadas antes</h4>
+      <p>A autorização busca a oficina por nome, código ou CNPJ e preenche os dados sozinha.
+      Importe a base da rede para começar.</p>
+      <button class="btn pri" onclick="go('ofi')">${ico('up')}Ir para Oficinas afiliadas</button></div></div>`;
+    return;
+  }
+  $('#ttl').textContent=A.novo?'Nova autorização':'Autorização '+A.numero;
+  $('#sub').textContent=A.novo?'Autorização, roteiro e check-list da oficina afiliada':A.status;
+  $('#topActions').innerHTML=`<button class="btn" id="aBack">${ico('layers')}Autorizações</button>`;
+  $('#aBack').onclick=()=>{A=null;go('aut')};
+  renderAut();
+}
+function renderAut(){
+  fecharSugestoes();
+  const of=afiliado(A.afiliado_id),u=unidade(A.unidade_id),c=cliente(A.cliente_id),
+    an=analista(A.analista_id),emp=empresaDaUnidade(u);
+  const total=num(A.valor_mo)+num(A.valor_peca);
+  $('#view').innerHTML=`<div class="bld">
+  <div>
+    <section class="step"><div class="step-h"><div class="step-n ${of?'done':''}">1</div>
+      <h3>Oficina afiliada</h3><div class="spacer"></div>
+      <button class="btn sm" id="aNovaOfi">${ico('plus')}Nova oficina</button></div>
+      <div class="step-b">
+        <div class="ac"><label class="f"><span>Buscar por nome, código ou CNPJ <i>*</i></span>
+          <input class="inp" id="aOfi" placeholder="Ex.: PLANALTO AUTO VIDROS, 424960 ou 11.252.320/0001-55"
+            value="${of?esc(of.razao_social):''}"></label></div>
+        ${of?`<div class="card" style="margin-top:14px;background:var(--surface-2);box-shadow:none">
+          <div class="card-b" style="padding:16px">
+            <div class="row" style="align-items:flex-start;gap:16px">
+              <div style="flex:1;min-width:190px">
+                <b style="font-size:14px">${esc(of.razao_social)}</b>
+                <div class="tiny muted">Código ${esc(of.codigo||'—')} · CNPJ ${esc(mkCNPJ(of.cnpj)||'—')}</div>
+                <div class="tiny muted">${esc([of.cidade,of.uf].filter(Boolean).join(' · '))}${of.telefone?' · '+esc(mkTel(of.telefone)):''}</div>
+              </div>
+              <button class="btn sm" id="aEditOfi">${ico('edit')}Editar</button>
+            </div></div></div>`
+        :'<div class="hint" style="margin-top:10px">A oficina selecionada tem o código, o CNPJ e a cidade impressos na autorização, para emissão da nota fiscal.</div>'}
+      </div></section>
+
+    <section class="step"><div class="step-h"><div class="step-n ${u?'done':''}">2</div>
+      <h3>Unidade de faturamento e atendimento</h3></div>
+      <div class="step-b">
+        <div class="grid g2" style="gap:14px">
+          <div class="ac"><label class="f"><span>Unidade Autoglass <i>*</i></span>
+            <input class="inp" id="aUni" placeholder="Buscar por código ou cidade…"
+              value="${u?esc(u.codigo+' · '+u.razao_social):''}"></label></div>
+          <label class="f"><span>Nº do atendimento / OS</span>
+            <input class="inp" id="aNat" value="${esc(A.n_atendimento)}" placeholder="Ex.: 53620559"></label>
+        </div>
+        ${u?`<div class="tiny muted" style="margin-top:10px;line-height:1.6">
+          ${esc(u.razao_social)}${u.cnpj?' · CNPJ '+esc(u.cnpj):''}<br>
+          ${esc([u.endereco,u.cidade,u.estado,u.cep].filter(Boolean).join(' — ')||'Endereço não cadastrado')}
+          ${emp?`<br><span style="color:var(--ag)">Faturamento: ${esc(emp.razao_social)}</span>`:''}</div>`:''}
+        <div class="grid g2" style="gap:14px;margin-top:14px">
+          <div class="ac"><label class="f"><span>Cliente / locadora</span>
+            <input class="inp" id="aCli" placeholder="Opcional — identifica a frota do veículo"
+              value="${c?esc(c.razao_social):''}"></label></div>
+          <label class="f"><span>Analista responsável</span><select class="inp" id="aAn">
+            <option value="">— selecione —</option>
+            ${DB.analistas.filter(x=>x.ativo!==false).map(x=>`<option value="${x.id}" ${A.analista_id===x.id?'selected':''}>${esc(x.nome)}</option>`).join('')}
+          </select></label>
+        </div>
+      </div></section>
+
+    <section class="step"><div class="step-h"><div class="step-n ${A.placa?'done':''}">3</div>
+      <h3>Veículo e condutor</h3></div>
+      <div class="step-b">
+        <div class="grid" style="grid-template-columns:140px 1fr 1fr;gap:14px">
+          <label class="f"><span>Placa <i>*</i></span><input class="inp" id="aPl" value="${esc(A.placa)}"
+            placeholder="ABC1D23" style="text-transform:uppercase"></label>
+          <label class="f"><span>Modelo</span><input class="inp" id="aMo" value="${esc(A.modelo)}" placeholder="S10, Onix, Polo…"></label>
+          <label class="f"><span>Chassi</span><input class="inp" id="aCh" value="${esc(A.chassi)}"
+            placeholder="17 caracteres" style="text-transform:uppercase"></label>
+        </div>
+        <div class="grid" style="grid-template-columns:1.4fr 1fr 1fr;gap:14px;margin-top:14px">
+          <label class="f"><span>Nome do condutor</span><input class="inp" id="aCon" value="${esc(A.condutor_nome)}"></label>
+          <label class="f"><span>Contato</span><input class="inp" id="aCont" value="${esc(A.condutor_contato)}"></label>
+          <label class="f"><span>CPF</span><input class="inp" id="aCpf" value="${esc(A.condutor_cpf)}" placeholder="000.000.000-00"></label>
+        </div>
+      </div></section>
+
+    <section class="step"><div class="step-h"><div class="step-n ${A.descricao?'done':''}">4</div>
+      <h3>Serviço autorizado</h3></div>
+      <div class="step-b">
+        <div class="ac"><label class="f"><span>Descrição do serviço <i>*</i></span>
+          <input class="inp" id="aDesc" value="${esc(A.descricao)}"
+            placeholder="Parabrisa, vigia, lateral… ou busque na base de peças"></label></div>
+        <div class="grid g3" style="gap:14px;margin-top:14px">
+          <label class="f"><span>Mão de obra (R$)</span><input class="inp money" id="aMo2"
+            value="${num(A.valor_mo).toLocaleString('pt-BR',{minimumFractionDigits:2})}"></label>
+          <label class="f"><span>Peça (R$)</span><input class="inp money" id="aPe"
+            value="${num(A.valor_peca).toLocaleString('pt-BR',{minimumFractionDigits:2})}"></label>
+          <label class="f"><span>Validade (dias)</span><input class="inp" id="aVal" value="${A.validade_dias}"></label>
+        </div>
+        <div class="hint">Informe o valor negociado. Campos zerados não aparecem no documento.</div>
+        <div class="grid g3" style="gap:14px;margin-top:14px">
+          <label class="f"><span>Data da autorização</span><input type="date" class="inp" id="aData" value="${A.data}"></label>
+          <label class="f"><span>Agendamento</span><input type="date" class="inp" id="aAg" value="${A.agendamento}"></label>
+          <label class="f"><span>Horário</span><input type="time" class="inp" id="aHr" value="${A.hora_agend}"></label>
+        </div>
+      </div></section>
+
+    <section class="step"><div class="step-h"><div class="step-n ${A.obs.length?'done':''}">5</div>
+      <h3>Observações</h3><span class="muted tiny">${A.obs.length} no documento</span></div>
+      <div class="step-b">
+        ${A.obs.length?`<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+          ${A.obs.map((o,i)=>`<div class="row" style="gap:10px;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:10px;flex-wrap:nowrap">
+            <span style="flex:1;font-size:13px">${esc(o)}</span>
+            <button class="icobtn" data-aobs="${i}" style="border:0;width:26px;height:26px;color:var(--ink-3);flex:0 0 26px">${ico('x')}</button></div>`).join('')}</div>`:''}
+        <div class="row" style="gap:8px;flex-wrap:nowrap;align-items:flex-start">
+          <textarea class="inp" id="aObs" placeholder="Escreva e pressione Adicionar (ou Ctrl+Enter)…" style="min-height:62px"></textarea>
+          <button class="btn" id="aAddObs" style="flex:0 0 auto">${ico('plus')}Adicionar</button>
+        </div>
+        <div class="row" style="margin-top:12px;gap:7px">
+          <span class="tiny muted" style="width:100%">Sugestões rápidas</span>
+          ${OBS_AUT.map((o,i)=>`<button class="btn sm" data-asug="${i}" style="font-weight:400">${esc(o.slice(0,38))}…</button>`).join('')}
+        </div>
+      </div></section>
+  </div>
+
+  <aside class="side">
+    <div class="card pad">
+      <div class="tiny muted" style="margin-bottom:10px">Resumo</div>
+      <div class="tot-line"><span>Mão de obra</span><span class="strong">${money(A.valor_mo)}</span></div>
+      <div class="tot-line"><span>Peça</span><span class="strong">${money(A.valor_peca)}</span></div>
+      <div class="tot-line big"><span>Total</span><b>${money(total)}</b></div>
+      <div class="tiny muted" style="margin-top:8px">${A.numero} · validade ${A.validade_dias} dias
+        ${A.data?'(até '+dBR(vencimentoAut(A))+')':''}</div>
+      <div style="display:flex;flex-direction:column;gap:9px;margin-top:16px">
+        <button class="btn pri lg block" id="aSave">${ico('save')}Salvar ${A.novo?'autorização':'alterações'}</button>
+      </div>
+      <div class="tiny muted" style="margin:16px 0 8px">Documentos</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn block doc-btn" data-doc="autorizacao">${ico('shield')}Autorização de serviço</button>
+        <button class="btn block doc-btn" data-doc="checklist">${ico('chk')}Check-list de entrada</button>
+        <button class="btn block doc-btn" data-doc="roteiro">${ico('files')}Roteiro de atendimento</button>
+        <button class="btn block pri doc-btn" data-doc="kit">${ico('layers')}Kit completo</button>
+      </div>
+      ${!A.novo?`<div class="row" style="gap:8px;margin-top:12px">
+        <button class="btn sm" style="flex:1" id="aMail">${ico('mail')}E-mail</button>
+        <button class="btn sm" style="flex:1" id="aWa">${ico('wa')}WhatsApp</button>
+      </div>
+      <div class="row" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line-2);gap:8px">
+        <span class="tiny muted">Status</span><div class="spacer"></div>
+        <select class="inp" id="aSt" style="height:30px;width:auto;font-size:12.5px">
+          ${STATUS_AUT.map(s=>`<option ${A.status===s?'selected':''}>${s}</option>`).join('')}</select></div>`:''}
+    </div>
+    <div class="card pad" style="background:var(--surface-2)">
+      <div class="tiny muted" style="margin-bottom:8px">Os três documentos</div>
+      <div class="tiny" style="line-height:1.7;color:var(--ink-2)">
+        A <b>autorização</b> vai preenchida para a oficina emitir a nota.
+        O <b>check-list</b> é impresso em branco e preenchido na chegada do veículo.
+        O <b>roteiro</b> explica o procedimento e não muda de um atendimento para outro.</div>
+    </div>
+  </aside></div>`;
+  bindAut();
+}
+function bindAut(){
+  const re=()=>renderAut();
+  /* oficina */
+  const io=$('#aOfi');
+  autocomplete(io,buscaAfiliados,(a,q)=>`<span class="c">${esc(a.codigo||'—')}</span>
+    <span class="d">${hl(a.razao_social,q)}<br><span class="muted tiny">${esc([a.cidade,a.uf].filter(Boolean).join(' · '))}${a.cnpj?' · '+esc(mkCNPJ(a.cnpj)):''}</span></span>`,
+    a=>{A.afiliado_id=a.id;re();toast('Oficina: '+a.razao_social)});
+  $('#aNovaOfi').onclick=()=>ofiForm(null,o=>{A.afiliado_id=o.id;re()});
+  $('#aEditOfi')&&($('#aEditOfi').onclick=()=>ofiForm(afiliado(A.afiliado_id),()=>re()));
+  /* unidade e cliente */
+  const iu=$('#aUni');
+  autocomplete(iu,q=>{const t=norm(q);return DB.unidades.filter(u=>u.ativo!==false&&(!t||norm([u.codigo,u.razao_social,u.cidade,u.estado].join(' ')).includes(t)))},
+    (u,q)=>`<span class="c">${esc(u.codigo)}</span><span class="d">${hl(u.razao_social,q)}<br><span class="muted tiny">${esc(u.cidade)} · ${esc(u.estado)}</span></span>`,
+    u=>{A.unidade_id=u.id;re()});
+  const ic=$('#aCli');
+  autocomplete(ic,q=>{const t=norm(q);return DB.clientes.filter(c=>c.ativo!==false&&(!t||norm([c.razao_social,c.nome_fantasia,c.grupo].join(' ')).includes(t)))},
+    (c,q)=>`<span class="d"><b>${hl(c.nome_fantasia||c.razao_social,q)}</b><br><span class="muted tiny">${esc(c.razao_social)}</span></span>`,
+    c=>{A.cliente_id=c.id;re()});
+  $('#aAn').onchange=e=>A.analista_id=e.target.value;
+  $('#aNat').oninput=e=>A.n_atendimento=e.target.value;
+  /* veículo */
+  const ip=$('#aPl');mask(ip,mkPlaca);ip.oninput=()=>A.placa=ip.value;
+  $('#aMo').oninput=e=>A.modelo=e.target.value;
+  const ich=$('#aCh');ich.oninput=()=>{ich.value=norm(ich.value).replace(/[^A-Z0-9]/g,'').slice(0,17);A.chassi=ich.value};
+  $('#aCon').oninput=e=>A.condutor_nome=e.target.value;
+  $('#aCont').oninput=e=>A.condutor_contato=e.target.value;
+  const icp=$('#aCpf');mask(icp,v=>String(v||'').replace(/\D/g,'').slice(0,11)
+    .replace(/^(\d{3})(\d)/,'$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/,'$1.$2.$3').replace(/(\d{3})(\d{1,2})$/,'$1-$2'));
+  icp.oninput=()=>A.condutor_cpf=icp.value;
+  /* serviço: a descrição também busca na base de peças */
+  const idd=$('#aDesc');
+  autocomplete(idd,buscaProdutos,(p,q)=>`<span class="c">${esc(p.codigo)}</span><span class="d">${hl(p.descricao,q)}</span>
+    <span class="v">${p.valor?money(p.valor):''}</span>`,
+    p=>{A.descricao=p.descricao;if(!num(A.valor_peca))A.valor_peca=p.valor;re()});
+  idd.onchange=()=>A.descricao=idd.value;
+  idd.oninput=()=>A.descricao=idd.value;
+  ['aMo2:valor_mo','aPe:valor_peca'].forEach(par=>{
+    const[id,k]=par.split(':');const el=$('#'+id);mkMoneyInput(el);
+    el.addEventListener('input',()=>{A[k]=num(el.value);softAut()})});
+  $('#aVal').oninput=e=>{A.validade_dias=parseInt(e.target.value.replace(/\D/g,''))||DB.config.validadeAut||30};
+  $('#aData').onchange=e=>{A.data=e.target.value;re()};
+  $('#aAg').onchange=e=>A.agendamento=e.target.value;
+  $('#aHr').onchange=e=>A.hora_agend=e.target.value;
+  /* observações */
+  const addObs=t=>{t=(t||'').trim();if(!t)return;if(!A.obs.includes(t))A.obs.push(t);re()};
+  $('#aAddObs').onclick=()=>addObs($('#aObs').value);
+  $('#aObs').onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();addObs($('#aObs').value)}};
+  $$('[data-asug]').forEach(b=>b.onclick=()=>addObs(OBS_AUT[+b.dataset.asug]));
+  $$('[data-aobs]').forEach(b=>b.onclick=()=>{A.obs.splice(+b.dataset.aobs,1);re()});
+  /* ações */
+  $('#aSave').onclick=()=>{if(persistAut())toast('Autorização salva · '+A.numero)};
+  $$('.doc-btn').forEach(b=>b.onclick=()=>{
+    const d=b.dataset.doc;
+    if(d!=='roteiro'&&!persistAut())return;
+    if(d==='roteiro'&&A.novo)persistAut(true);
+    gerarDocAut(aut(A.id)||A,d);
+  });
+  $('#aMail')&&($('#aMail').onclick=()=>{if(persistAut(true))mailAut(aut(A.id))});
+  $('#aWa')&&($('#aWa').onclick=()=>{if(persistAut(true))waAut(aut(A.id))});
+  $('#aSt')&&($('#aSt').onchange=e=>{A.status=e.target.value;histAut(A,'Status alterado para "'+e.target.value+'"');persistAut(true)});
+}
+function softAut(){
+  const s=$('.side');if(!s)return;
+  const t=s.querySelectorAll('.tot-line');
+  t[0].lastElementChild.textContent=money(A.valor_mo);
+  t[1].lastElementChild.textContent=money(A.valor_peca);
+  s.querySelector('.tot-line.big b').textContent=money(num(A.valor_mo)+num(A.valor_peca));
+}
+function validarAut(){
+  const e=[];
+  if(!A.afiliado_id)e.push('Selecione a oficina afiliada');
+  if(!A.unidade_id)e.push('Selecione a unidade de faturamento');
+  if(!A.placa)e.push('Informe a placa do veículo');
+  if(!A.descricao)e.push('Informe a descrição do serviço');
+  return e;
+}
+function persistAut(silencioso){
+  const e=validarAut();
+  if(e.length&&!silencioso){toast(e[0],'err');return false}
+  A.updated_at=new Date().toISOString();
+  const ix=DB.autorizacoes.findIndex(x=>x.id===A.id);
+  if(ix<0){
+    histAut(A,'Autorização criada');
+    if(A.novo&&A.numero===proxNumeroAut()){DB.config.proxAut=(DB.config.proxAut||1)+1;save('meta')}
+    A.novo=false;DB.autorizacoes.unshift(clone(A));
+  } else DB.autorizacoes[ix]=clone(A);
+  save('aut');
+  return true;
+}
+addEventListener('keydown',e=>{
+  if(ROUTE.k!=='novaaut'||!A)return;
+  if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();if(persistAut())toast('Autorização salva')}
+});
+
+/* ───────────── DOCUMENTOS DA REDE DE AFILIADOS ─────────────
+   Mesma linguagem visual do orçamento: cabeçalho com a marca, régua azul,
+   rótulos em caixa alta e blocos com fundo suave.                        */
+function ferramentasPDF(d){
+  const txt=(s,x,y,{size=9,style='normal',color=INK,align='left',max=null,lh=1.4}={})=>{
+    d.setFont('helvetica',style);d.setFontSize(size);d.setTextColor(...color);
+    const linhas=max?d.splitTextToSize(String(s??''),max):[String(s??'')];
+    linhas.forEach((l,i)=>d.text(l,x,y+i*size*0.3528*lh,{align}));
+    return linhas.length*size*0.3528*lh;
+  };
+  const label=(s,x,y,cor=INK3)=>{d.setFont('helvetica','bold');d.setFontSize(6.6);d.setTextColor(...cor);
+    d.text(String(s).toUpperCase(),x,y,{charSpace:.5})};
+  const rule=(y,x1=M,x2=PW-M,cor=LINE,w=.3)=>{d.setDrawColor(...cor);d.setLineWidth(w);d.line(x1,y,x2,y)};
+  const caixa=(x,y,w,h,fill=SOFT,borda=null,r=2.2)=>{
+    d.setFillColor(...fill);
+    if(borda){d.setDrawColor(...borda);d.setLineWidth(.3);d.roundedRect(x,y,w,h,r,r,'FD')}
+    else d.roundedRect(x,y,w,h,r,r,'F');
+  };
+  const campo=(x,y,larg,rot,valor,{size=9,style='bold'}={})=>{
+    label(rot,x,y);
+    txt(valor||'—',x,y+4.6,{size,style,max:larg});
+    return 8.4;
+  };
+  return {txt,label,rule,caixa,campo};
+}
+function cabecalhoAut(d,titulo,subtitulo,a){
+  const {txt,label,rule}=ferramentasPDF(d);
+  const cfg=DB.config;
+  let y=M;
+  const s=IMGCACHE[cfg.logo]||{w:340,h:154};
+  const r=Math.min(42/s.w,12/s.h);
+  try{d.addImage(cfg.logo,/^data:image\/(jpe?g)/i.test(cfg.logo)?'JPEG':'PNG',M,y,s.w*r,s.h*r)}catch(e){}
+  d.setFont('helvetica','bold');d.setFontSize(6.6);d.setTextColor(...INK3);
+  d.text('REDE DE AFILIADOS',PW-M,y+4,{align:'right',charSpace:.5});
+  txt(cfg.redeTelefone||'',PW-M,y+9,{size:8,color:INK2,align:'right'});
+  y+=15;
+  d.setFillColor(...AGB);d.rect(M,y,CW,1.1,'F');
+  y+=9;
+  txt(titulo,M,y+1,{size:17,style:'bold'});
+  if(a){
+    txt([a.placa,dBR(a.data),String(a.numero).split('-').pop()].filter(Boolean).join('  ·  '),
+      M,y+7.4,{size:10.5,style:'bold',color:AGB});
+    txt(a.numero,M,y+12.4,{size:7.2,color:INK3});
+    const rx=PW-M;
+    label('Documento',rx-68,y-1.5);
+    txt(subtitulo,rx,y-1.5,{size:8.2,style:'bold',align:'right',max:52});
+    label('Validade',rx-68,y+4);
+    txt((a.validade_dias||30)+' dias — até '+dBR(vencimentoAut(a)),rx,y+4,{size:8.4,align:'right'});
+    if(a.agendamento){
+      label('Agendamento',rx-68,y+9.5);
+      txt(dBR(a.agendamento)+(a.hora_agend?' às '+a.hora_agend:''),rx,y+9.5,{size:8.4,style:'bold',color:AGB,align:'right'});
+    }
+    y+=16;
+  } else {
+    txt(subtitulo,M,y+7.4,{size:9.5,color:INK2,max:CW-40});
+    txt(dBR(today()),PW-M,y+1,{size:8.6,align:'right',color:INK3});
+    y+=15;
+  }
+  return y;
+}
+function rodapeAut(d,a,texto){
+  const {txt,label,rule}=ferramentasPDF(d);
+  const cfg=DB.config,an=analista(a&&a.analista_id)||{};
+  const fy=PH-26;
+  rule(fy,M,PW-M);
+  label('Analista responsável',M,fy+6);
+  txt(an.nome||cfg.usuario||'—',M,fy+11.6,{size:9.5,style:'bold'});
+  txt([an.whatsapp?'WhatsApp '+an.whatsapp:'',an.email||cfg.mailRemetente||''].filter(Boolean).join('   ·   '),
+    M,fy+16,{size:7.6,color:INK2});
+  label('Rede de afiliados',PW-M-60,fy+6);
+  txt(cfg.redeTelefone||'',PW-M,fy+11.6,{size:8.4,style:'bold',align:'right'});
+  txt(cfg.redeEmail||'',PW-M,fy+16,{size:7.6,color:AGB,align:'right'});
+  txt(texto||'',M,PH-7,{size:6.6,color:INK3,max:CW-24});
+  txt(String(d.getCurrentPageInfo().pageNumber),PW-M,PH-7,{size:6.6,color:INK3,align:'right'});
+}
+
+/* ── 1. Roteiro de atendimento (texto fixo) ── */
+async function pdfRoteiro(d,a){
+  const {txt,label,caixa}=ferramentasPDF(d);
+  let y=cabecalhoAut(d,'Roteiro de atendimento',
+    'Instruções para conduzir o atendimento do veículo direcionado ao seu estabelecimento. Leia com atenção.',a?null:null);
+  caixa(M,y,CW,13,[238,242,251]);
+  txt('Documento informativo — mantenha disponível para a equipe da oficina.',M+6,y+8,{size:8.4,color:[18,53,111],style:'bold'});
+  y+=20;
+  const partes=tplRede(DB.config.roteiroTexto||ROTEIRO_PADRAO).split('\n');
+  partes.forEach(p=>{
+    const t=p.trim();
+    if(!t){y+=2.4;return}
+    if(y>PH-40){rodapeAut(d,a,'Roteiro de atendimento · Rede de Afiliados Autoglass');d.addPage();y=M+4}
+    if(t.startsWith('##')){
+      y+=3;
+      label(t.replace(/^##\s*/,''),M,y,AGB);
+      y+=5.4;
+    } else {
+      y+=txt(t,M,y,{size:8.6,color:INK2,max:CW,lh:1.5})+2.6;
+    }
+  });
+  rodapeAut(d,a,'Roteiro de atendimento · Rede de Afiliados Autoglass');
+}
+
+/* ── 2. Autorização de serviço ── */
+async function pdfAutorizacao(d,a){
+  const {txt,label,rule,caixa,campo}=ferramentasPDF(d);
+  const of=afiliado(a.afiliado_id)||{},u=unidade(a.unidade_id)||{},emp=empresaDaUnidade(u)||{},
+    c=cliente(a.cliente_id)||{};
+  let y=cabecalhoAut(d,'Autorização de serviço','Autorização de serviço',a);
+
+  /* emissão da nota fiscal */
+  label('Informações para emissão da nota fiscal de serviço',M,y);
+  y+=5;
+  const hCx=26;
+  caixa(M,y,CW,hCx);
+  const col=(CW-14)/3;
+  campo(M+6,y+6.4,col-6,'Unidade',u.codigo||'—');
+  campo(M+6+col,y+6.4,col-6,'CNPJ',emp.cnpj||u.cnpj||'—',{size:8.4});
+  campo(M+6+col*2,y+6.4,col-6,'Telefone',u.telefone||DB.config.redeTelefone||'—',{size:8.4});
+  campo(M+6,y+16.8,col*2-6,'Razão social',emp.razao_social||u.razao_social||'—',{size:8.4});
+  campo(M+6+col*2,y+16.8,col-6,'Nº do atendimento',a.n_atendimento||'—',{size:8.4});
+  y+=hCx+2.5;
+  txt([u.endereco,u.cidade&&u.cidade+(u.estado?' - '+u.estado:''),u.cep&&'CEP '+u.cep]
+    .filter(Boolean).join(', '),M+1,y+2,{size:7.6,color:INK2,max:CW-2});
+  y+=6.5;
+
+  /* afiliado */
+  label('Afiliado',M,y);y+=5;
+  const hAf=24;
+  caixa(M,y,CW,hAf,[247,249,253],LINE);
+  campo(M+6,y+6.4,col-6,'Código',of.codigo||'—');
+  campo(M+6+col,y+6.4,col*2-6,'Razão social',of.razao_social||'—',{size:9.5});
+  campo(M+6,y+16,col-6,'CNPJ',mkCNPJ(of.cnpj)||'—',{size:8.4});
+  campo(M+6+col,y+16,col-6,'Telefone',mkTel(of.telefone)||'—',{size:8.4});
+  campo(M+6+col*2,y+16,col-6,'Cidade',[of.cidade,of.uf].filter(Boolean).join(' - ')||'—',{size:8.4});
+  y+=hAf+4;
+
+  /* serviço e valores */
+  label('Serviço autorizado',M,y);y+=5;
+  const larg=CW*0.62;
+  caixa(M,y,larg,18);
+  campo(M+6,y+6.4,larg-12,'Descrição',a.descricao||'—',{size:9.5});
+  if(c.razao_social)txt('Cliente: '+(c.nome_fantasia||c.razao_social),M+6,y+15.4,{size:7.4,color:INK3,max:larg-12});
+  const lv=CW-larg-5;
+  d.setFillColor(...AGB);d.roundedRect(M+larg+5,y,lv,18,2.2,2.2,'F');
+  d.setFont('helvetica','bold');d.setFontSize(6.6);d.setTextColor(255,255,255);
+  const temPeca=num(a.valor_peca)>0, temMO=num(a.valor_mo)>0;
+  d.text(temMO&&!temPeca?'MÃO DE OBRA':temPeca&&!temMO?'PEÇA':'TOTAL AUTORIZADO',M+larg+11,y+6.6,{charSpace:.5});
+  txt(money(num(a.valor_mo)+num(a.valor_peca)),PW-M-6,y+14,{size:13,style:'bold',color:[255,255,255],align:'right'});
+  if(temMO&&temPeca)txt('Mão de obra '+money(a.valor_mo)+'  ·  Peça '+money(a.valor_peca),
+    M+6,y+22.5,{size:7.4,color:INK3});
+  y+=18+(temMO&&temPeca?6:3);
+
+  /* condutor e veículo */
+  label('Dados do condutor e do veículo',M,y);y+=5;
+  const hCd=24;
+  caixa(M,y,CW,hCd);
+  campo(M+6,y+6.4,col*2-6,'Nome',a.condutor_nome||'—',{size:9});
+  campo(M+6+col*2,y+6.4,col-6,'Placa',a.placa||'—',{size:11});
+  campo(M+6,y+16,col-6,'Contato',a.condutor_contato||'—',{size:8.4});
+  campo(M+6+col,y+16,col-6,'Modelo',a.modelo||'—',{size:8.4});
+  campo(M+6+col*2,y+16,col-6,'Chassi',a.chassi||'—',{size:8.4});
+  y+=hCd+4;
+
+  /* avisos */
+  /* os dois avisos dividem a mesma tarja, para economizar altura */
+  const lChassi=d.splitTextToSize(DB.config.autAvisoChassi||'',CW-12);
+  const lFotos=d.splitTextToSize(DB.config.autAvisoFotos||'',CW-12);
+  const hAv=(lChassi.length+lFotos.length)*3.4+7;
+  caixa(M,y,CW,hAv,[253,251,244],[240,231,205]);
+  let ay=y+4.4;
+  lChassi.forEach(l=>{txt(l,M+6,ay,{size:7.2,color:INK2});ay+=3.4});
+  lFotos.forEach(l=>{txt(l,M+6,ay+.6,{size:7.2,style:'bold',color:AGB});ay+=3.4});
+  y+=hAv+4;
+
+  if(a.obs&&a.obs.length){
+    const linhas=a.obs.map(t=>d.splitTextToSize('•  '+t,CW-14));
+    const h=linhas.flat().length*3.7+8;
+    caixa(M,y,CW,h,[247,249,253],LINE);
+    label('Observações',M+7,y+5.6);
+    let oy=y+10.4;
+    linhas.forEach(ls=>{ls.forEach((l,i)=>{txt(l,M+7+(i?3:0),oy,{size:7.6,color:INK2});oy+=3.7})});
+    y+=h+4;
+  }
+
+  /* condições — só entram se couberem acima das assinaturas e do rodapé */
+  const cond=tplRede(DB.config.autCondicoes||'').split('\n').filter(Boolean);
+  const alturaCond=cond.reduce((h,l)=>h+d.splitTextToSize('•  '+l,CW).length*6.8*0.3528*1.28+.8,4.2);
+  const limite=PH-26-21;                       /* rodapé + assinaturas */
+  if(y+alturaCond>limite){
+    rodapeAut(d,a,'Autorização de serviço · continua na página seguinte.');
+    d.addPage();y=M+4;
+  }
+  label('Condições',M,y);y+=4.6;
+  cond.forEach(l=>{y+=txt('•  '+l,M,y,{size:6.8,color:INK3,max:CW,lh:1.28})+.8});
+
+  /* assinaturas */
+  y=Math.max(y+8,PH-51);
+  const la=(CW-12)/2;
+  rule(y+10,M,M+la,INK3,.4);rule(y+10,M+la+12,PW-M,INK3,.4);
+  txt('Assinatura do afiliado',M,y+14,{size:7.4,color:INK3});
+  txt('Assinatura do condutor e CPF',M+la+12,y+14,{size:7.4,color:INK3});
+  rodapeAut(d,a,'Autorização de serviço · validade de '+(a.validade_dias||30)+' dias a partir da emissão.');
+}
+
+/* ── 3. Check-list de entrada do veículo ── */
+async function pdfChecklist(d,a){
+  const {txt,label,rule,caixa,campo}=ferramentasPDF(d);
+  const of=afiliado(a.afiliado_id)||{};
+  let y=cabecalhoAut(d,'Check-list de entrada','Check-list de entrada',a);
+  const col=(CW-14)/3;
+
+  caixa(M,y,CW,18);
+  campo(M+6,y+7,col-6,'Placa',a.placa||'');
+  campo(M+6+col,y+7,col-6,'Nº do atendimento',a.n_atendimento||'');
+  campo(M+6+col*2,y+7,col-6,'Oficina',of.razao_social||'',{size:8});
+  y+=24;
+
+  label('Avaria',M,y,AGB);y+=6;
+  txt('Além do item apontado no sinistro, o veículo possui outra avaria ou dano?',M,y,{size:9,style:'bold'});
+  txt('Sim (     )          Não (     )',M,y+6,{size:10,color:INK2});
+  y+=14;
+  txt('Se houver, marque de acordo com as letras e os respectivos locais indicados abaixo:',
+    M,y,{size:8.2,color:INK2,max:CW});
+  y+=6;
+  /* diagrama do veículo */
+  try{
+    const s=IMGCACHE[DIAGRAMA_AVARIAS]||{w:770,h:242};
+    const larg=Math.min(CW,150), h=larg*s.h/s.w;
+    d.addImage(DIAGRAMA_AVARIAS,'JPEG',M+(CW-larg)/2,y,larg,h);
+    y+=h+6;
+  }catch(e){y+=4}
+
+  /* observações manuscritas */
+  label('Observações',M,y);y+=5;
+  caixa(M,y,CW,26,[252,253,255],LINE);
+  for(let i=1;i<=3;i++)rule(y+i*7,M+6,PW-M-6,[226,231,240],.25);
+  y+=31;
+
+  txt('Há pertences no interior do veículo? Quais?',M,y,{size:9,style:'bold'});
+  y+=5;
+  caixa(M,y,CW,20,[252,253,255],LINE);
+  for(let i=1;i<=2;i++)rule(y+i*6.5,M+6,PW-M-6,[226,231,240],.25);
+  y+=26;
+
+  if(a.obs&&a.obs.length){
+    const linhas=a.obs.map(t=>d.splitTextToSize('•  '+t,CW-14));
+    const h=linhas.flat().length*3.8+10;
+    if(y+h<PH-60){
+      caixa(M,y,CW,h,[253,251,244],[240,231,205]);
+      label('Orientações do atendimento',M+7,y+6);
+      let oy=y+11;
+      linhas.forEach(ls=>{ls.forEach((l,i)=>{txt(l,M+7+(i?3:0),oy,{size:7.8,color:INK2});oy+=3.8})});
+      y+=h+6;
+    }
+  }
+
+  y=Math.max(y+6,PH-56);
+  const la=(CW-12)/2;
+  rule(y+10,M,M+la,INK3,.4);rule(y+10,M+la+12,PW-M,INK3,.4);
+  txt('Assinatura do afiliado',M,y+14,{size:7.4,color:INK3});
+  txt('Assinatura do condutor e CPF',M+la+12,y+14,{size:7.4,color:INK3});
+  txt('Preencher no momento da chegada do veículo. Assinaturas, preferencialmente, em caneta azul.',
+    M,y+20,{size:7.2,color:INK3,max:CW});
+  rodapeAut(d,a,'Check-list de entrada do veículo · preenchimento obrigatório no recebimento.');
+}
+
+const DOCS_AUT={
+  roteiro:['Roteiro de atendimento',pdfRoteiro,'roteiro'],
+  autorizacao:['Autorização de serviço',pdfAutorizacao,'autorizacao'],
+  checklist:['Check-list de entrada',pdfChecklist,'checklist'],
+};
+async function buildDocAut(a,tipo){
+  await preload([DB.config.logo,DIAGRAMA_AVARIAS]);
+  const {jsPDF}=window.jspdf;
+  const d=new jsPDF({unit:'mm',format:'a4',compress:true});
+  d.setFont('helvetica','normal');
+  if(tipo==='kit'){
+    await pdfAutorizacao(d,a);
+    d.addPage();await pdfChecklist(d,a);
+    d.addPage();await pdfRoteiro(d,a);
+  } else {
+    await DOCS_AUT[tipo][1](d,a);
+  }
+  return d;
+}
+function nomeDocAut(a,tipo){
+  const limpa=t=>String(t||'').replace(/[^\w-]+/g,'-').replace(/^-+|-+$/g,'');
+  const seq=String(a.numero||'').split('-').pop();
+  const sufixo={roteiro:'roteiro',autorizacao:'autorizacao',checklist:'checklist',kit:'kit'}[tipo];
+  return [limpa(a.placa)||'autorizacao',a.data.split('-').reverse().join('-'),seq,sufixo].join('_')+'.pdf';
+}
+async function gerarDocAut(a,tipo,baixar=true){
+  try{
+    const d=await buildDocAut(a,tipo);
+    const nome=nomeDocAut(a,tipo);
+    if(baixar){
+      const ok=await dl(d.output('blob'),nome);
+      if(ok){
+        const alvo=aut(a.id);
+        if(alvo){
+          if(alvo.status==='Rascunho'&&tipo!=='roteiro')alvo.status='Emitida';
+          histAut(alvo,(tipo==='kit'?'Kit completo gerado':DOCS_AUT[tipo][0]+' gerado'));
+          save('aut');
+          if(A&&A.id===alvo.id){A.status=alvo.status;A.hist=alvo.hist}
+        }
+        toast('Documento gerado · '+nome);
+        if(ROUTE.k==='aut')vAut();
+      }
+    }
+    return {doc:d,nome,blob:d.output('blob')};
+  }catch(e){console.error(e);toast('Erro ao gerar o documento: '+e.message,'err')}
+}
+async function baixarKits(ids){
+  if(ids.length===1)return gerarDocAut(aut(ids[0]),'kit');
+  toast('Gerando '+ids.length+' kits…');
+  try{
+    const zip=new JSZip();
+    for(const id of ids){
+      const a=aut(id);const r=await gerarDocAut(a,'kit',false);if(!r)continue;
+      zip.file(r.nome,r.blob);
+      if(a.status==='Rascunho')a.status='Emitida';
+      histAut(a,'Kit completo gerado (lote)');
+    }
+    save('aut');
+    const blob=await zip.generateAsync({type:'blob'});
+    await dl(blob,'AUTORIZACOES_'+today().split('-').reverse().join('-')+'.zip');
+    toast(ids.length+' kits baixados');vAut();
+  }catch(e){toast('Falha ao compactar: '+e.message,'err')}
+}
+
+/* ── envio ── */
+function textoAut(a){
+  const of=afiliado(a.afiliado_id)||{},u=unidade(a.unidade_id)||{},an=analista(a.analista_id)||{};
+  return `Olá, ${of.razao_social||''}!
+
+Segue a *Autorização de Serviço ${a.numero}* para o veículo *${a.placa}*${a.modelo?' ('+a.modelo+')':''}.
+
+Atendimento: ${a.n_atendimento||'—'}
+Serviço: ${a.descricao||'—'}
+Valor autorizado: *${money(num(a.valor_mo)+num(a.valor_peca))}*
+Unidade de faturamento: ${u.codigo||''} — ${u.razao_social||''}
+Validade: ${a.validade_dias||30} dias.
+
+Seguem em anexo o roteiro de atendimento e o check-list de entrada, que deve ser impresso e preenchido na chegada do veículo.
+
+${an.nome||DB.config.usuario||''} — Autoglass
+Rede de Afiliados ${DB.config.redeTelefone||''}`;
+}
+function mailAut(a){
+  const of=afiliado(a.afiliado_id)||{},cfg=DB.config;
+  modal({title:'Enviar autorização por e-mail',sub:a.numero+' · '+(of.razao_social||''),wide:'wide',
+    body:`<div class="grid" style="gap:14px">
+      <label class="f"><span>Destinatário <i>*</i></span><input class="inp" id="mAto" value="${esc(of.email||'')}"
+        placeholder="oficina@email.com.br"></label>
+      <label class="f"><span>Assunto</span><input class="inp" id="mAsub"
+        value="Autorização de Serviço ${esc(a.numero)} — Placa ${esc(a.placa)}"></label>
+      <label class="f"><span>Mensagem</span><textarea class="inp" id="mAbody" style="min-height:200px">${esc(textoAut(a).replace(/\*/g,''))}</textarea></label>
+      <div class="row" style="gap:8px;padding:12px;background:var(--ag-50);border-radius:10px">
+        <span style="color:var(--ag);display:flex">${ico('layers')}</span>
+        <span class="tiny">O kit completo — autorização, check-list e roteiro — é salvo para anexar à mensagem.</span></div>
+    </div>`,
+    footer:`<button class="btn" data-close>Cancelar</button>
+      <button class="btn pri" id="mAok">${ico('send')}Preparar envio</button>`,
+    onMount(ov,close){
+      ov.querySelector('#mAok').onclick=async()=>{
+        const to=ov.querySelector('#mAto').value.trim();
+        if(!/.+@.+\..+/.test(to)){toast('Informe um destinatário válido','err');return}
+        const sub=ov.querySelector('#mAsub').value,body=ov.querySelector('#mAbody').value;
+        await gerarDocAut(a,'kit');
+        const href='mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(sub)
+          +'&body='+encodeURIComponent(body+'\n\n(anexar o PDF salvo)');
+        const el=document.createElement('a');el.href=href;el.click();
+        a.status=a.status==='Executada'?a.status:'Enviada';
+        histAut(a,'Enviada por e-mail para '+to);save('aut');
+        close();toast('Documento salvo e mensagem preparada');
+        if(ROUTE.k==='aut')vAut();else if(ROUTE.k==='novaaut'&&A)vNovaAut(A.id);
+      };
+    }});
+}
+function waAut(a){
+  const of=afiliado(a.afiliado_id)||{};
+  modal({title:'Enviar autorização por WhatsApp',sub:a.numero+' · '+(of.razao_social||''),wide:'wide',
+    body:`<div class="grid" style="gap:14px">
+      <label class="f"><span>Número com DDD <i>*</i></span><input class="inp" id="wAnum" value="${esc(mkTel(of.telefone))}">
+        <div class="hint">Telefone da oficina afiliada. O código do país é acrescentado automaticamente.</div></label>
+      <label class="f"><span>Mensagem</span><textarea class="inp" id="wAmsg" style="min-height:220px">${esc(textoAut(a))}</textarea></label>
+      <div class="row" style="gap:8px;padding:12px;background:var(--ag-50);border-radius:10px">
+        <span style="color:var(--ag);display:flex">${ico('layers')}</span>
+        <span class="tiny">O kit completo é salvo ao abrir a conversa. Anexe o PDF pelo clipe do WhatsApp.</span></div>
+    </div>`,
+    footer:`<button class="btn" data-close>Cancelar</button>
+      <button class="btn" id="wAcopy">${ico('copy')}Copiar mensagem</button>
+      <button class="btn pri" id="wAgo">${ico('wa')}Abrir WhatsApp</button>`,
+    onMount(ov,close){
+      mask(ov.querySelector('#wAnum'),mkTel);
+      ov.querySelector('#wAcopy').onclick=()=>copiar(ov.querySelector('#wAmsg').value,'Mensagem copiada');
+      ov.querySelector('#wAgo').onclick=async()=>{
+        const n=telefoneWA(ov.querySelector('#wAnum').value);
+        if(n.length<12){toast('Informe o número com DDD','err');return}
+        const texto=ov.querySelector('#wAmsg').value;
+        await gerarDocAut(a,'kit');
+        a.status=a.status==='Executada'?a.status:'Enviada';
+        histAut(a,'Enviada por WhatsApp para '+ov.querySelector('#wAnum').value);save('aut');
+        window.open('https://wa.me/'+n+'?text='+encodeURIComponent(texto),'_blank');
+        close();toast('WhatsApp aberto — anexe o PDF salvo');
+        if(ROUTE.k==='aut')vAut();else if(ROUTE.k==='novaaut'&&A)vNovaAut(A.id);
+      };
+    }});
+}
+
+</script>
+<script>
 /* ═══════════════════ INIT ═══════════════════ */
 function shell(){
   $('#sbLogo').src=DB.config.logo||LOGO_AG;
@@ -4029,7 +5267,9 @@ $('#themeBtn').onclick=()=>{
 $('#toggleSb').onclick=()=>{
   if(innerWidth<=900)document.body.classList.toggle('drawer-open');
   else document.body.classList.toggle('mini');
+  setTimeout(moverMarca,30);setTimeout(moverMarca,300);
 };
+$('#nav').addEventListener('scroll',()=>requestAnimationFrame(moverMarca),{passive:true});
 addEventListener('click',e=>{if(document.body.classList.contains('drawer-open')&&!e.target.closest('.sb,#toggleSb'))
   document.body.classList.remove('drawer-open')});
 (async()=>{
