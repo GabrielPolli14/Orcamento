@@ -43,7 +43,7 @@
   --sh:0 1px 2px rgba(19,26,43,.05),0 1px 3px rgba(19,26,43,.04);
   --sh-2:0 4px 16px rgba(19,26,43,.07),0 1px 3px rgba(19,26,43,.04);
   --sh-3:0 18px 50px rgba(19,26,43,.16);
-  --sb:252px; --sb-min:74px;
+  --sb:252px; --sb-min:74px; --top-h:60px;
   --ff:'Poppins',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
@@ -58,41 +58,48 @@ a{color:var(--ag);text-decoration:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
 /* ---------- LAYOUT ---------- */
-.app{display:flex;min-height:100vh;gap:0}
-/* ───────── BARRA LATERAL FLUTUANTE ─────────
-   Painel descolado da borda, com profundidade e um realce que desliza entre
-   os itens. O relevo é sutil de propósito: dá movimento sem tirar o ar
-   corporativo do sistema.                                                  */
-.sb{width:var(--sb);flex:0 0 var(--sb);position:sticky;top:0;height:100vh;z-index:40;
-  padding:14px 0 14px 14px;display:flex;
+/* ───────── ESTRUTURA ─────────
+   Barra superior de largura total, fixa; abaixo dela, o painel de navegação
+   flutuante e o conteúdo. A barra nunca é coberta pela lateral.            */
+.top{height:var(--top-h);background:var(--top-bg);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 18px;
+  position:sticky;top:0;z-index:60}
+.sb-marca{background:none;border:0;cursor:pointer;padding:4px 10px 4px 0;display:flex;align-items:center;
+  margin-right:2px;border-right:1px solid var(--line);perspective:600px}
+.sb-logo{height:26px;width:auto;object-fit:contain;display:block;
+  transition:transform .35s cubic-bezier(.22,.9,.3,1),opacity .2s}
+.sb-marca:hover .sb-logo{transform:rotateY(-12deg) translateZ(6px) scale(1.05)}
+.sb-marca:active .sb-logo{transform:scale(.96)}
+.top-ttl{min-width:0;overflow:hidden}
+.top h1{font-size:15.5px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;
+  text-overflow:ellipsis;overflow:hidden}
+.top .sub{color:var(--ink-3);font-size:12.5px;font-weight:400;white-space:nowrap;
+  text-overflow:ellipsis;overflow:hidden}
+
+.app{display:flex;min-height:calc(100vh - var(--top-h));align-items:flex-start}
+.sb{width:var(--sb);flex:0 0 var(--sb);position:sticky;top:calc(var(--top-h) + 14px);z-index:30;
+  height:calc(100vh - var(--top-h) - 28px);padding:14px 0 0 14px;display:flex;
   transition:width .26s cubic-bezier(.22,.9,.3,1),flex-basis .26s cubic-bezier(.22,.9,.3,1)}
 .sb-painel{flex:1;min-width:0;background:var(--card);border:1px solid var(--line);
   border-radius:var(--r-lg);display:flex;flex-direction:column;overflow:hidden;
-  box-shadow:0 10px 34px rgba(19,26,43,.09),0 2px 8px rgba(19,26,43,.05);
-  transform-style:preserve-3d;transition:box-shadow .3s ease,transform .3s ease}
-.sb:hover .sb-painel{box-shadow:0 18px 48px rgba(19,26,43,.14),0 3px 10px rgba(19,26,43,.06)}
-[data-theme="dark"] .sb-painel{box-shadow:0 14px 40px rgba(0,0,0,.5),0 2px 8px rgba(0,0,0,.4)}
+  box-shadow:0 8px 28px rgba(19,26,43,.08),0 1px 4px rgba(19,26,43,.04);
+  transition:box-shadow .3s ease}
+.sb:hover .sb-painel{box-shadow:0 16px 42px rgba(19,26,43,.12),0 2px 8px rgba(19,26,43,.05)}
+[data-theme="dark"] .sb-painel{box-shadow:0 14px 40px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.35)}
 body.mini .sb{width:var(--sb-min);flex-basis:var(--sb-min)}
 
-.sb-top{padding:16px 16px 12px;display:flex;align-items:center;gap:10px;min-height:62px;
-  background:none;border:0;width:100%;cursor:pointer;border-radius:0;perspective:600px}
-.sb-logo{height:28px;width:auto;max-width:100%;object-fit:contain;display:block;
-  transition:transform .35s cubic-bezier(.22,.9,.3,1),opacity .2s}
-.sb-top:hover .sb-logo{transform:rotateY(-12deg) translateZ(6px) scale(1.04)}
-.sb-top:active .sb-logo{transform:scale(.96)}
-body.mini .sb-logo{height:22px}
-
-.sb-nav{padding:6px 10px 10px;display:flex;flex-direction:column;gap:3px;overflow-y:auto;overflow-x:hidden;
+.sb-nav{padding:12px 10px 10px;display:flex;flex-direction:column;gap:3px;overflow-y:auto;overflow-x:hidden;
   flex:1;position:relative;scrollbar-width:thin}
 .sb-nav::-webkit-scrollbar{width:6px}
 .sb-sec{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4);
-  padding:16px 12px 6px;font-weight:600;white-space:nowrap;transition:opacity .2s}
-body.mini .sb-sec{opacity:0;height:16px;padding:9px 0 0;pointer-events:none}
+  padding:14px 12px 5px;font-weight:600;white-space:nowrap;transition:opacity .2s}
+.sb-nav .sb-sec:first-of-type{padding-top:2px}
+body.mini .sb-sec{opacity:0;height:14px;padding:8px 0 0;pointer-events:none}
+body.mini .sb-nav .sb-sec{border-top:1px solid var(--line-2);margin:6px 8px 0;height:1px;padding:0}
 
-/* realce que desliza entre os itens */
 #navMarca{position:absolute;left:10px;right:10px;height:0;border-radius:var(--r-sm);
   background:linear-gradient(135deg,var(--ag) 0%,var(--ag-700) 100%);
-  box-shadow:0 6px 16px rgba(22,65,148,.3);opacity:0;pointer-events:none;z-index:0;
+  box-shadow:0 6px 16px rgba(22,65,148,.28);opacity:0;pointer-events:none;z-index:0;
   transition:transform .34s cubic-bezier(.34,1.3,.5,1),height .22s ease,opacity .22s ease}
 [data-theme="dark"] #navMarca{background:linear-gradient(135deg,#2f5190 0%,#1d3360 100%);
   box-shadow:0 6px 18px rgba(0,0,0,.45)}
@@ -124,7 +131,7 @@ body.mini .nav[data-tip]:hover::after{content:attr(data-tip);position:absolute;l
 .sb-user:hover{background:var(--surface-2)}
 .av{width:32px;height:32px;flex:0 0 32px;border-radius:50%;background:var(--ag);color:#fff;
   display:grid;place-items:center;font-weight:600;font-size:12px;
-  box-shadow:0 3px 10px rgba(22,65,148,.28);transition:transform .3s cubic-bezier(.34,1.4,.5,1)}
+  box-shadow:0 3px 10px rgba(22,65,148,.26);transition:transform .3s cubic-bezier(.34,1.4,.5,1)}
 .sb-user:hover .av{transform:translateY(-2px) scale(1.05)}
 .sb-user div{overflow:hidden}
 .sb-user b{display:block;font-size:12.5px;font-weight:600;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
@@ -132,9 +139,7 @@ body.mini .nav[data-tip]:hover::after{content:attr(data-tip);position:absolute;l
 body.mini .sb-user div{display:none}
 body.mini .sb-user{justify-content:center}
 
-.main{flex:1;min-width:0;display:flex;flex-direction:column}
-.top{height:64px;background:var(--top-bg);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
-  display:flex;align-items:center;gap:14px;padding:0 22px;position:sticky;top:0;z-index:30}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;min-height:calc(100vh - var(--top-h))}
 .icobtn{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);background:var(--card);
   display:grid;place-items:center;cursor:pointer;color:var(--ink-2);flex:0 0 34px}
 .icobtn:hover{background:var(--ag-50);color:var(--ag);border-color:var(--ag-300)}
@@ -484,8 +489,9 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--ag);cursor:pointe
 .mobile-hide{display:inline-grid}
 @media(max-width:1180px){.bld{grid-template-columns:1fr}.side{position:static}.g4{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:900px){
-  .sb{position:fixed;left:0;top:0;transform:translateX(-104%);transition:transform .26s cubic-bezier(.22,.9,.3,1);
-    width:var(--sb);flex-basis:var(--sb);padding:10px}
+  .sb{position:fixed;left:0;top:var(--top-h);transform:translateX(-104%);
+    transition:transform .26s cubic-bezier(.22,.9,.3,1);
+    width:var(--sb);flex-basis:var(--sb);padding:10px;height:calc(100vh - var(--top-h) - 20px)}
   body.drawer-open .sb{transform:none}
   body.drawer-open::after{content:'';position:fixed;inset:0;background:rgba(19,26,43,.4);z-index:35}
   body.mini .sb{width:var(--sb);flex-basis:var(--sb)}
@@ -494,7 +500,8 @@ input[type=checkbox]{width:16px;height:16px;accent-color:var(--ag);cursor:pointe
   body.mini .nav{justify-content:flex-start;padding:9px 12px}
   .g2,.g3,.g4{grid-template-columns:1fr}
   .wrap{padding:18px 14px 60px}
-  .top{padding:0 14px}.top .sub{display:none}
+  .top{padding:0 12px;gap:9px}.top .sub{display:none}
+  .sb-marca{padding-right:8px}.sb-logo{height:22px}
   .mobile-only{display:inline-flex}
   .mobile-hide{display:none}
   .md-f{flex-direction:column-reverse}.md-f .btn{width:100%}
@@ -512,11 +519,20 @@ const SEED_PRODUTOS_GZ="H4sIALIBl2oC/7S9yZLzyJUmuv+fgtYrqcpE+jwsESQjfioZwSiSEfmn
 const SEED_TOTAL=8484;
 </script>
 
+<header class="top">
+  <button class="sb-marca" id="sbHome" title="Voltar para o início" aria-label="Voltar para o início">
+    <img class="sb-logo" id="sbLogo" alt="Autoglass" src="">
+  </button>
+  <button class="icobtn" id="toggleSb" title="Recolher menu" aria-label="Recolher menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+  <div class="top-ttl"><h1 id="ttl">Dashboard</h1><div class="sub" id="sub"></div></div>
+  <div class="spacer"></div>
+  <div id="topActions" class="row" style="gap:8px"></div>
+  <button class="icobtn mobile-hide" id="homeBtn" title="Ir para o início" aria-label="Início"></button>
+  <button class="icobtn" id="syncDot" title="Sincronização" aria-label="Estado da sincronização" style="display:none"></button>
+  <button class="icobtn" id="themeBtn" title="Mudar tema" aria-label="Mudar tema"></button>
+</header>
 <div class="app">
   <aside class="sb"><div class="sb-painel">
-    <button class="sb-top" id="sbHome" title="Voltar para o início" aria-label="Voltar para o início">
-      <img class="sb-logo" id="sbLogo" alt="Autoglass" src="">
-    </button>
     <nav class="sb-nav" id="nav"><span id="navMarca"></span></nav>
     <div class="sb-foot">
       <div class="sb-user">
@@ -526,15 +542,6 @@ const SEED_TOTAL=8484;
     </div>
   </div></aside>
   <div class="main">
-    <header class="top">
-      <button class="icobtn" id="toggleSb" title="Recolher menu" aria-label="Recolher menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
-      <button class="icobtn mobile-hide" id="homeBtn" title="Ir para o início" aria-label="Início"></button>
-      <div><h1 id="ttl">Dashboard</h1><div class="sub" id="sub"></div></div>
-      <div class="spacer"></div>
-      <div id="topActions" class="row" style="gap:8px"></div>
-      <button class="icobtn" id="syncDot" title="Sincronização" aria-label="Estado da sincronização" style="display:none"></button>
-      <button class="icobtn" id="themeBtn" title="Mudar tema" aria-label="Mudar tema"></button>
-    </header>
     <div class="wrap" id="view"></div>
   </div>
 </div>
@@ -789,7 +796,7 @@ const DEFCFG={
   roteiroTexto:ROTEIRO_PADRAO,
   autAvisoChassi:'A loja sempre deve conferir o número do chassi e a placa antes de realizar o atendimento. Havendo divergência, entrar em contato com o operador responsável.',
   autAvisoFotos:'FAVOR PROVIDENCIAR FOTOS DO DANO ANTES DO REPARO, DURANTE E APÓS O SERVIÇO REALIZADO.',
-  autCondicoes:'Os itens danificados deverão ser substituídos por peças com qualidade, características ou desempenho semelhantes (peças originais) aos dos itens danificados nos veículos.\nO Grupo Autoglass se reserva o direito de exigir a troca de peças, eventualmente instaladas, que não atendam ao quesito de qualidade acima mencionado, assim como não será responsável por qualquer custo decorrente da instalação ou remoção da peça que não se enquadre nesse quesito.\nA Autorização de Serviço tem validade de {validade} dias após a data de emissão. Caso o serviço não seja realizado nesse prazo, favor entrar em contato pelo telefone {telefone} ou pelo e-mail {email}.',
+  autCondicoes:'Os itens danificados deverão ser substituídos por peças com qualidade, características ou desempenho semelhantes (peças originais) aos dos itens danificados nos veículos.\nGrupo Autoglass se reserva o direito de exigir a troca de peças, eventualmente instaladas, que não atendam o quesito de qualidade acima mencionado, assim como não será responsável por qualquer custo decorrente da instalação/remoção da peça que não se enquadre no quesito qualidade.\nA "Autorização de Serviço" tem validade de 30 (Trinta) dias após a data de emissão. Caso o serviço não seja realizado nesse prazo, favor realizar contato pelo telefone {telefone} ou no e-mail: {email}',
   usuario:'',perfil:'Administrador'
 };
 async function boot(){
@@ -1208,12 +1215,13 @@ function buscaProdutos(q){
 <script>
 /* ───────────────────────── NAVEGAÇÃO ───────────────────────── */
 const MENU=[
- {sec:'Operação'},
  {k:'hub',t:'Início',i:'home'},
+ {sec:'Orçamento'},
  {k:'dash',t:'Dashboard',i:'dash'},
  {k:'novo',t:'Novo orçamento',i:'file'},
  {k:'orc',t:'Orçamentos',i:'files'},
  {sec:'Rede de afiliados'},
+ {k:'dashaf',t:'Dashboard',i:'chart'},
  {k:'novaaut',t:'Nova autorização',i:'shield'},
  {k:'aut',t:'Autorizações',i:'layers'},
  {k:'ofi',t:'Oficinas afiliadas',i:'bank'},
@@ -1247,7 +1255,8 @@ const TITLES={hub:['Início','Tudo o que você usa no dia a dia'],dash:['Dashboa
  cfg:['Configurações','Preferências gerais, PDF e e-mail'],
  novaaut:['Nova autorização','Autorização, roteiro e check-list da oficina afiliada'],
  aut:['Autorizações de serviço','Documentos emitidos para a rede de afiliados'],
- ofi:['Oficinas afiliadas','Base de credenciados usada nas autorizações']};
+ ofi:['Oficinas afiliadas','Base de credenciados usada nas autorizações'],
+ dashaf:['Dashboard da rede','Volume, estados e ranking de prestadores']};
 let ROUTE={k:'hub',arg:null};
 function go(k,arg){location.hash='#/'+k+(arg?'/'+arg:'')}
 function router(){
@@ -1259,7 +1268,7 @@ function router(){
   const[t,s]=TITLES[ROUTE.k];$('#ttl').textContent=t;$('#sub').textContent=s;
   $('#topActions').innerHTML='';fecharSugestoes();window.scrollTo(0,0);
   ({hub:vHub,dash:vDash,novo:vNovo,orc:vOrc,cli:vCli,uni:vUni,prod:vProd,cfg:vCfg,
-    novaaut:vNovaAut,aut:vAut,ofi:vOfi})[ROUTE.k](ROUTE.arg);
+    novaaut:vNovaAut,aut:vAut,ofi:vOfi,dashaf:vDashAf})[ROUTE.k](ROUTE.arg);
   /* ao abrir listas, confere se alguém da equipe alterou algo */
   if(['orc','dash','hub'].includes(ROUTE.k)&&typeof Cloud!=='undefined'&&Cloud.pronto())
     Cloud.refrescar().then(m=>{if(m&&['orc','dash','hub'].includes(ROUTE.k))router()});
@@ -1305,6 +1314,33 @@ function buscaAfiliados(q){
     pontos.push([p,a]);
   });
   return pontos.sort((x,y)=>y[0]-x[0]).map(x=>x[1]);
+}
+/* agrupamentos de peça e modelos de veículo, derivados da base de produtos */
+let _agrup=null,_modelos=null;
+function agrupamentos(){
+  if(!_agrup)_agrup=[...new Set(DB.produtos.map(p=>(p.categoria||'').trim()).filter(Boolean))].sort();
+  return _agrup;
+}
+function modelosVeiculo(){
+  if(!_modelos){
+    const s=new Set();
+    DB.produtos.forEach(p=>{const a=(p.aplicacao||'').trim();if(a.length>2)s.add(a)});
+    _modelos=[...s].sort();
+  }
+  return _modelos;
+}
+function buscaModelos(q){
+  const lista=modelosVeiculo();
+  if(!q)return lista.slice(0,25);
+  const t=norm(q).split(/\s+/).filter(Boolean);
+  const pontua=m=>{
+    const n=' '+norm(m);
+    if(!t.every(w=>n.includes(w)))return -1;
+    /* casar o início de uma palavra vale mais que casar no meio dela */
+    return t.reduce((p,w)=>p+(n.includes(' '+w)?10:0),0)-n.length/40;
+  };
+  return lista.map(m=>[pontua(m),m]).filter(x=>x[0]>=0)
+    .sort((a,b)=>b[0]-a[0]).slice(0,40).map(x=>x[1]);
 }
 const grupos=()=>[...new Set(DB.clientes.map(c=>(c.grupo||'').trim()).filter(Boolean))].sort();
 const grupoDoOrc=o=>cliente(o.cliente_id)?.grupo||'';
@@ -3234,7 +3270,9 @@ const Cloud={
         condutor_nome:r.condutor_nome||'',condutor_contato:r.condutor_contato||'',condutor_cpf:r.condutor_cpf||'',
         placa:r.placa||'',chassi:r.chassi||'',modelo:r.modelo||'',
         agendamento:r.agendamento||'',hora_agend:r.hora_agend||'',descricao:r.descricao||'',
-        valor_mo:Number(r.valor_mo)||0,valor_peca:Number(r.valor_peca)||0,obs:r.obs||[],
+        valor_mo:Number(r.valor_mo)||0,valor_peca:Number(r.valor_peca)||0,
+        tipo_valor:r.tipo_valor||((Number(r.valor_peca)||0)>0?'Peça':'Mão de obra'),
+        valor:(Number(r.valor_peca)||0)>0?Number(r.valor_peca):Number(r.valor_mo)||0,obs:r.obs||[],
         status:r.status||'Rascunho',validade_dias:r.validade_dias||30,hist:hA[r.id]||[],
         created_at:r.created_at,updated_at:r.updated_at}));
       const maiorA=DB.autorizacoes.reduce((m,a)=>{const n=parseInt(String(a.numero).split('-').pop(),10);
@@ -4455,7 +4493,8 @@ function vAut(){
         <td class="tiny"><b>${esc(a.placa||'—')}</b><div class="muted">${esc(a.modelo||'')}</div></td>
         <td class="tiny">${esc(u?.codigo||'—')}<div class="muted">${esc(u?.cidade||'')}</div></td>
         <td class="tiny">${dBR(a.data)}<div class="muted">${a.agendamento?'ag. '+dBR(a.agendamento):''}</div></td>
-        <td class="num">${money(num(a.valor_mo)+num(a.valor_peca))}</td>
+        <td class="num">${money(num(a.valor)||num(a.valor_mo)+num(a.valor_peca))}
+          <div class="tiny muted">${esc(a.tipo_valor||'')}</div></td>
         <td>${pillAut(a.status)}</td>
         <td><button class="icobtn" data-ma="${a.id}" style="border:0;width:28px;height:28px">${ico('dots')}</button></td>
       </tr>`}).join('')}</tbody></table></div>`
@@ -4535,6 +4574,154 @@ function duplicarAut(a){
   DB.autorizacoes.unshift(n);save('aut');save('meta');toast('Duplicada como '+n.numero);go('novaaut',n.id);
 }
 
+
+/* ───────────── DASHBOARD DA REDE DE AFILIADOS ───────────── */
+let afF={de:'',ate:'',uf:[],ofi:[],st:[],uni:[]};
+function vDashAf(){
+  const v=$('#view');
+  $('#topActions').innerHTML=`<button class="btn pri" onclick="go('novaaut')">${ico('plus')}Nova autorização</button>`;
+  if(!DB.autorizacoes.length){
+    v.innerHTML=`<div class="card"><div class="empty">${ico('chart')}
+      <h4>Sem autorizações para analisar</h4>
+      <p>Emita a primeira autorização para acompanhar volume por estado, ranking de prestadores
+      e o que está em aberto na rede.</p>
+      <button class="btn pri" onclick="go('novaaut')">${ico('plus')}Nova autorização</button></div></div>`;
+    return;
+  }
+  const inc=(arr,x)=>!arr.length||arr.includes(x);
+  const valorDe=a=>num(a.valor)||num(a.valor_mo)+num(a.valor_peca);
+  const f=DB.autorizacoes.filter(a=>{
+    const of=afiliado(a.afiliado_id)||{};
+    return (!afF.de||a.data>=afF.de)&&(!afF.ate||a.data<=afF.ate)
+      &&inc(afF.uf,of.uf||'')&&inc(afF.ofi,a.afiliado_id)&&inc(afF.st,a.status)&&inc(afF.uni,a.unidade_id);
+  });
+  const mes=new Date().toISOString().slice(0,7);
+  const K={
+    tot:f.length,
+    mes:f.filter(a=>a.data.startsWith(mes)).length,
+    abertas:f.filter(a=>['Rascunho','Emitida','Enviada'].includes(a.status)).length,
+    fechadas:f.filter(a=>a.status==='Executada').length,
+    val:f.reduce((s,a)=>s+valorDe(a),0),
+    oficinas:new Set(f.map(a=>a.afiliado_id)).size,
+  };
+  K.tk=K.tot?K.val/K.tot:0;
+  K.conv=f.filter(a=>a.status!=='Rascunho').length
+    ?K.fechadas/f.filter(a=>a.status!=='Rascunho').length*100:0;
+  const ufs=[...new Set(DB.afiliados.map(a=>a.uf).filter(Boolean))].sort();
+  const OPCF={
+    uf:()=>ufs.map(u=>({v:u,t:u})),
+    ofi:()=>[...new Set(DB.autorizacoes.map(a=>a.afiliado_id))].filter(Boolean)
+      .map(id=>({v:id,t:afiliado(id)?.razao_social||'—'})).sort((a,b)=>a.t.localeCompare(b.t)),
+    st:()=>STATUS_AUT.map(s=>({v:s,t:s})),
+    uni:()=>DB.unidades.map(u=>({v:u.id,t:u.codigo+' · '+u.cidade})),
+  };
+  const ROTF={uf:'Estado',ofi:'Oficina',st:'Status',uni:'Unidade'};
+
+  v.innerHTML=`
+  <div class="card pad" style="margin-bottom:16px">
+    <div class="fgrid">
+      <label class="f" style="margin:0"><input type="date" class="inp" data-aff="de" value="${afF.de}" title="A partir de"></label>
+      <label class="f" style="margin:0"><input type="date" class="inp" data-aff="ate" value="${afF.ate}" title="Até"></label>
+      ${['uf','ofi','st','uni'].map(k=>botaoFiltro(k,ROTF[k],afF[k],OPCF[k]())).join('')}
+      <button class="btn" id="afClr">${ico('refresh')}Limpar</button>
+    </div>
+  </div>
+
+  <div class="grid g4" style="margin-bottom:16px">
+    <div class="kpi hl"><div class="lb">${ico('money')}Valor autorizado</div><div class="vl">${moneyShort(K.val)}</div>
+      <div class="dt">${K.oficinas} oficina(s) acionada(s)</div></div>
+    <div class="kpi"><div class="lb">${ico('layers')}Autorizações</div><div class="vl">${K.tot}</div>
+      <div class="dt">${K.mes} neste mês</div></div>
+    <div class="kpi"><div class="lb">${ico('clock')}Em aberto</div><div class="vl">${K.abertas}</div>
+      <div class="dt">${money(f.filter(a=>['Rascunho','Emitida','Enviada'].includes(a.status)).reduce((s,a)=>s+valorDe(a),0))}</div></div>
+    <div class="kpi"><div class="lb">${ico('chk')}Executadas</div><div class="vl">${K.fechadas}</div>
+      <div class="dt">${K.conv.toFixed(0)}% de conclusão</div></div>
+  </div>
+  <div class="grid g4" style="margin-bottom:16px">
+    ${STATUS_AUT.map(s=>{const n=f.filter(a=>a.status===s).length;
+      return `<div class="kpi" style="padding:13px 16px">
+        <div class="lb">${pillAut(s)}</div><div class="vl" style="font-size:20px">${n}</div>
+        <div class="dt">${money(f.filter(a=>a.status===s).reduce((x,a)=>x+valorDe(a),0))}</div></div>`}).join('')}
+  </div>
+
+  <div class="grid g2" style="margin-bottom:16px">
+    <div class="card"><div class="card-h"><div style="flex:1"><h3>Evolução mensal</h3>
+      <p>Autorizações emitidas e valor por mês</p></div></div>
+      <div class="card-b" id="afEvo"></div></div>
+    <div class="card"><div class="card-h"><div style="flex:1"><h3>Prestadores mais acionados</h3>
+      <p>Ranking por número de autorizações</p></div></div>
+      <div class="card-b" id="afRank"></div></div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><div class="card-h"><div style="flex:1"><h3>Distribuição por estado</h3>
+      <p>Onde a rede está sendo acionada</p></div></div>
+      <div class="card-b" id="afUF"></div></div>
+    <div class="card"><div class="card-h"><div style="flex:1"><h3>Últimas autorizações</h3>
+      <p>Movimentação recente</p></div>
+      <button class="btn sm" onclick="go('aut')">Ver todas</button></div>
+      <div class="tbl-wrap"><table class="tbl"><tbody>
+      ${f.slice().sort((a,b)=>b.created_at.localeCompare(a.created_at)).slice(0,7).map(a=>`
+        <tr style="cursor:pointer" onclick="go('novaaut','${a.id}')">
+          <td><b class="mono">${a.numero}</b><div class="tiny muted">${esc(afiliado(a.afiliado_id)?.razao_social||'—')}</div></td>
+          <td class="tiny">${esc(a.placa||'—')}<div class="muted">${dBR(a.data)}</div></td>
+          <td class="num">${money(valorDe(a))}</td><td>${pillAut(a.status)}</td></tr>`).join('')}
+      </tbody></table></div></div>
+  </div>`;
+
+  $$('[data-aff]').forEach(el=>el.onchange=()=>{afF[el.dataset.aff]=el.value;vDashAf()});
+  $$('#view [data-multi]').forEach(b=>b.onclick=e=>{e.stopPropagation();const k=b.dataset.multi;
+    multiFiltro(b,ROTF[k],OPCF[k](),afF[k],vals=>{afF[k]=vals;vDashAf()})});
+  $('#afClr').onclick=()=>{afF={de:'',ate:'',uf:[],ofi:[],st:[],uni:[]};vDashAf()};
+  desenhaEvoAf($('#afEvo'),f,valorDe);
+  desenhaRankAf($('#afRank'),f,valorDe);
+  desenhaUF($('#afUF'),f,valorDe);
+}
+function desenhaEvoAf(el,f,valorDe){
+  const by={};f.forEach(a=>{const m=a.data.slice(0,7);(by[m]=by[m]||{n:0,v:0});by[m].n++;by[m].v+=valorDe(a)});
+  const keys=Object.keys(by).sort().slice(-8);
+  if(!keys.length){el.innerHTML='<div class="empty tiny">Sem movimentação no período.</div>';return}
+  const maxV=Math.max(...keys.map(k=>by[k].v))||1,maxN=Math.max(...keys.map(k=>by[k].n))||1;
+  const W=560,H=180,pl=6,pr=6,pb=26,bw=(W-pl-pr)/keys.length;
+  const pts=keys.map((k,i)=>[pl+bw*i+bw/2,H-pb-(by[k].n/maxN)*(H-pb-18)]);
+  el.innerHTML=`<svg class="chart" viewBox="0 0 ${W} ${H}">
+    ${keys.map((k,i)=>{const h=(by[k].v/maxV)*(H-pb-18);
+      return `<rect x="${pl+bw*i+bw*.24}" y="${H-pb-h}" width="${bw*.52}" height="${Math.max(2,h)}" rx="4" fill="var(--chart-bar)"/>`}).join('')}
+    <polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="var(--ag)" stroke-width="2.2" stroke-linejoin="round"/>
+    ${pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="3.4" fill="var(--card)" stroke="var(--ag)" stroke-width="2"/>`).join('')}
+    ${keys.map((k,i)=>`<text x="${pl+bw*i+bw/2}" y="${H-8}" text-anchor="middle" font-size="10" fill="currentColor" opacity=".62" font-family="Poppins">${k.slice(5)}/${k.slice(2,4)}</text>`).join('')}
+  </svg><div class="lg"><span><i style="background:var(--chart-bar)"></i>Valor (máx. ${moneyShort(maxV)})</span>
+    <span><i style="background:var(--ag)"></i>Quantidade (máx. ${maxN})</span></div>`;
+}
+function desenhaRankAf(el,f,valorDe){
+  const by={};f.forEach(a=>{const of=afiliado(a.afiliado_id);if(!of)return;
+    const k=of.id;(by[k]=by[k]||{n:0,v:0,nome:of.razao_social,uf:of.uf||'',cid:of.cidade||''});
+    by[k].n++;by[k].v+=valorDe(a)});
+  const arr=Object.values(by).sort((a,b)=>b.n-a.n).slice(0,8);
+  if(!arr.length){el.innerHTML='<div class="empty tiny">Nenhuma oficina acionada no período.</div>';return}
+  const mx=arr[0].n;
+  el.innerHTML=arr.map(o=>`<div class="bar-row"><span class="nm">${esc(o.nome)}
+      <span class="muted tiny">${esc([o.cid,o.uf].filter(Boolean).join(' · '))}</span></span>
+    <span class="muted tiny" style="flex:0 0 auto">${moneyShort(o.v)}</span>
+    <span class="bar-track"><span class="bar-fill" style="width:${o.n/mx*100}%"></span></span>
+    <span class="vl">${o.n}</span></div>`).join('');
+}
+function desenhaUF(el,f,valorDe){
+  const by={};f.forEach(a=>{const uf=afiliado(a.afiliado_id)?.uf||'—';
+    (by[uf]=by[uf]||{n:0,v:0});by[uf].n++;by[uf].v+=valorDe(a)});
+  const arr=Object.entries(by).sort((a,b)=>b[1].n-a[1].n);
+  if(!arr.length){el.innerHTML='<div class="empty tiny">Sem dados por estado.</div>';return}
+  const tot=arr.reduce((s,x)=>s+x[1].n,0),mx=arr[0][1].n;
+  el.innerHTML=`<div class="row" style="gap:7px;margin-bottom:14px;flex-wrap:wrap">
+      ${arr.slice(0,12).map(([uf,d])=>`<span class="tag" title="${d.n} autorização(ões) · ${money(d.v)}"
+        style="padding:5px 10px">${esc(uf)} <b>${d.n}</b></span>`).join('')}
+    </div>
+    ${arr.slice(0,7).map(([uf,d])=>`<div class="bar-row"><span class="nm">${esc(uf)}</span>
+      <span class="muted tiny" style="flex:0 0 auto">${moneyShort(d.v)}</span>
+      <span class="bar-track"><span class="bar-fill" style="width:${d.n/mx*100}%"></span></span>
+      <span class="vl">${d.n}</span>
+      <span class="muted tiny" style="width:38px;text-align:right">${(d.n/tot*100).toFixed(0)}%</span></div>`).join('')}`;
+}
+
 /* ───────────── CONSTRUTOR DA AUTORIZAÇÃO ───────────── */
 let A=null;
 function novaAutorizacao(){
@@ -4543,7 +4730,7 @@ function novaAutorizacao(){
     unidade_id:DB.config.unidadePadrao||'',afiliado_id:'',cliente_id:DB.config.clientePadrao||'',
     analista_id:an?.id||'',condutor_nome:'',condutor_contato:'',condutor_cpf:'',
     placa:'',chassi:'',modelo:'',agendamento:'',hora_agend:'',
-    descricao:'',valor_mo:0,valor_peca:0,obs:[],status:'Rascunho',
+    descricao:'',tipo_valor:'Mão de obra',valor:0,valor_mo:0,valor_peca:0,obs:[],status:'Rascunho',
     validade_dias:DB.config.validadeAut||30,hist:[],created_at:new Date().toISOString(),novo:true};
 }
 const OBS_AUT=['Veículo com película aplicada no vidro.',
@@ -4572,7 +4759,7 @@ function renderAut(){
   fecharSugestoes();
   const of=afiliado(A.afiliado_id),u=unidade(A.unidade_id),c=cliente(A.cliente_id),
     an=analista(A.analista_id),emp=empresaDaUnidade(u);
-  const total=num(A.valor_mo)+num(A.valor_peca);
+  const total=num(A.valor);
   $('#view').innerHTML=`<div class="bld">
   <div>
     <section class="step"><div class="step-h"><div class="step-n ${of?'done':''}">1</div>
@@ -4610,8 +4797,8 @@ function renderAut(){
           ${esc([u.endereco,u.cidade,u.estado,u.cep].filter(Boolean).join(' — ')||'Endereço não cadastrado')}
           ${emp?`<br><span style="color:var(--ag)">Faturamento: ${esc(emp.razao_social)}</span>`:''}</div>`:''}
         <div class="grid g2" style="gap:14px;margin-top:14px">
-          <div class="ac"><label class="f"><span>Cliente / locadora</span>
-            <input class="inp" id="aCli" placeholder="Opcional — identifica a frota do veículo"
+          <div class="ac"><label class="f"><span>Cliente</span>
+            <input class="inp" id="aCli" placeholder="Frota responsável pelo veículo"
               value="${c?esc(c.razao_social):''}"></label></div>
           <label class="f"><span>Analista responsável</span><select class="inp" id="aAn">
             <option value="">— selecione —</option>
@@ -4631,7 +4818,8 @@ function renderAut(){
             placeholder="17 caracteres" style="text-transform:uppercase"></label>
         </div>
         <div class="grid" style="grid-template-columns:1.4fr 1fr 1fr;gap:14px;margin-top:14px">
-          <label class="f"><span>Nome do condutor</span><input class="inp" id="aCon" value="${esc(A.condutor_nome)}"></label>
+          <label class="f"><span>Nome do responsável</span><input class="inp" id="aCon" value="${esc(A.condutor_nome)}"
+            placeholder="Cliente responsável pelo veículo"></label>
           <label class="f"><span>Contato</span><input class="inp" id="aCont" value="${esc(A.condutor_contato)}"></label>
           <label class="f"><span>CPF</span><input class="inp" id="aCpf" value="${esc(A.condutor_cpf)}" placeholder="000.000.000-00"></label>
         </div>
@@ -4640,17 +4828,24 @@ function renderAut(){
     <section class="step"><div class="step-h"><div class="step-n ${A.descricao?'done':''}">4</div>
       <h3>Serviço autorizado</h3></div>
       <div class="step-b">
-        <div class="ac"><label class="f"><span>Descrição do serviço <i>*</i></span>
-          <input class="inp" id="aDesc" value="${esc(A.descricao)}"
-            placeholder="Parabrisa, vigia, lateral… ou busque na base de peças"></label></div>
+        <div class="grid g2" style="gap:14px">
+          <label class="f"><span>Descrição <i>*</i></span>
+            <select class="inp" id="aDesc">
+              <option value="">— selecione o agrupamento —</option>
+              ${agrupamentos().map(g=>`<option ${A.descricao===g?'selected':''}>${esc(g)}</option>`).join('')}
+            </select>
+            <div class="hint">Grupo da peça, não o item. Sai assim na autorização.</div></label>
+          <label class="f"><span>Tipo do valor <i>*</i></span>
+            <select class="inp" id="aTipo">
+              ${['Mão de obra','Peça'].map(t=>`<option ${(A.tipo_valor||'Mão de obra')===t?'selected':''}>${t}</option>`).join('')}
+            </select>
+            <div class="hint">Peça quando a Autoglass não fornece o vidro.</div></label>
+        </div>
         <div class="grid g3" style="gap:14px;margin-top:14px">
-          <label class="f"><span>Mão de obra (R$)</span><input class="inp money" id="aMo2"
-            value="${num(A.valor_mo).toLocaleString('pt-BR',{minimumFractionDigits:2})}"></label>
-          <label class="f"><span>Peça (R$)</span><input class="inp money" id="aPe"
-            value="${num(A.valor_peca).toLocaleString('pt-BR',{minimumFractionDigits:2})}"></label>
+          <label class="f"><span>Valor (R$) <i>*</i></span><input class="inp money" id="aValor"
+            value="${num(A.valor).toLocaleString('pt-BR',{minimumFractionDigits:2})}"></label>
           <label class="f"><span>Validade (dias)</span><input class="inp" id="aVal" value="${A.validade_dias}"></label>
         </div>
-        <div class="hint">Informe o valor negociado. Campos zerados não aparecem no documento.</div>
         <div class="grid g3" style="gap:14px;margin-top:14px">
           <label class="f"><span>Data da autorização</span><input type="date" class="inp" id="aData" value="${A.data}"></label>
           <label class="f"><span>Agendamento</span><input type="date" class="inp" id="aAg" value="${A.agendamento}"></label>
@@ -4679,9 +4874,8 @@ function renderAut(){
   <aside class="side">
     <div class="card pad">
       <div class="tiny muted" style="margin-bottom:10px">Resumo</div>
-      <div class="tot-line"><span>Mão de obra</span><span class="strong">${money(A.valor_mo)}</span></div>
-      <div class="tot-line"><span>Peça</span><span class="strong">${money(A.valor_peca)}</span></div>
-      <div class="tot-line big"><span>Total</span><b>${money(total)}</b></div>
+      <div class="tot-line"><span>${esc(A.tipo_valor||'Mão de obra')}</span><span class="strong">${money(A.valor)}</span></div>
+      <div class="tot-line big"><span>Autorizado</span><b>${money(A.valor)}</b></div>
       <div class="tiny muted" style="margin-top:8px">${A.numero} · validade ${A.validade_dias} dias
         ${A.data?'(até '+dBR(vencimentoAut(A))+')':''}</div>
       <div style="display:flex;flex-direction:column;gap:9px;margin-top:16px">
@@ -4730,28 +4924,28 @@ function bindAut(){
   const ic=$('#aCli');
   autocomplete(ic,q=>{const t=norm(q);return DB.clientes.filter(c=>c.ativo!==false&&(!t||norm([c.razao_social,c.nome_fantasia,c.grupo].join(' ')).includes(t)))},
     (c,q)=>`<span class="d"><b>${hl(c.nome_fantasia||c.razao_social,q)}</b><br><span class="muted tiny">${esc(c.razao_social)}</span></span>`,
-    c=>{A.cliente_id=c.id;re()});
+    c=>{A.cliente_id=c.id;
+        if(!A.condutor_nome)A.condutor_nome=c.nome_fantasia||c.razao_social;  /* responsável pelo veículo */
+        re()});
   $('#aAn').onchange=e=>A.analista_id=e.target.value;
   $('#aNat').oninput=e=>A.n_atendimento=e.target.value;
   /* veículo */
   const ip=$('#aPl');mask(ip,mkPlaca);ip.oninput=()=>A.placa=ip.value;
-  $('#aMo').oninput=e=>A.modelo=e.target.value;
+  const imo=$('#aMo');
+  autocomplete(imo,buscaModelos,(m,q)=>`<span class="d">${hl(m,q)}</span>`,
+    m=>{A.modelo=m;imo.value=m;fecharSugestoes()});
+  imo.oninput=()=>A.modelo=imo.value;
   const ich=$('#aCh');ich.oninput=()=>{ich.value=norm(ich.value).replace(/[^A-Z0-9]/g,'').slice(0,17);A.chassi=ich.value};
   $('#aCon').oninput=e=>A.condutor_nome=e.target.value;
   $('#aCont').oninput=e=>A.condutor_contato=e.target.value;
   const icp=$('#aCpf');mask(icp,v=>String(v||'').replace(/\D/g,'').slice(0,11)
     .replace(/^(\d{3})(\d)/,'$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/,'$1.$2.$3').replace(/(\d{3})(\d{1,2})$/,'$1-$2'));
   icp.oninput=()=>A.condutor_cpf=icp.value;
-  /* serviço: a descrição também busca na base de peças */
-  const idd=$('#aDesc');
-  autocomplete(idd,buscaProdutos,(p,q)=>`<span class="c">${esc(p.codigo)}</span><span class="d">${hl(p.descricao,q)}</span>
-    <span class="v">${p.valor?money(p.valor):''}</span>`,
-    p=>{A.descricao=p.descricao;if(!num(A.valor_peca))A.valor_peca=p.valor;re()});
-  idd.onchange=()=>A.descricao=idd.value;
-  idd.oninput=()=>A.descricao=idd.value;
-  ['aMo2:valor_mo','aPe:valor_peca'].forEach(par=>{
-    const[id,k]=par.split(':');const el=$('#'+id);mkMoneyInput(el);
-    el.addEventListener('input',()=>{A[k]=num(el.value);softAut()})});
+  /* serviço: agrupamento da peça e um valor, de peça ou de mão de obra */
+  $('#aDesc').onchange=e=>{A.descricao=e.target.value};
+  $('#aTipo').onchange=e=>{A.tipo_valor=e.target.value;re()};
+  const iv=$('#aValor');mkMoneyInput(iv);
+  iv.addEventListener('input',()=>{A.valor=num(iv.value);softAut()});
   $('#aVal').oninput=e=>{A.validade_dias=parseInt(e.target.value.replace(/\D/g,''))||DB.config.validadeAut||30};
   $('#aData').onchange=e=>{A.data=e.target.value;re()};
   $('#aAg').onchange=e=>A.agendamento=e.target.value;
@@ -4776,20 +4970,22 @@ function bindAut(){
 }
 function softAut(){
   const s=$('.side');if(!s)return;
-  const t=s.querySelectorAll('.tot-line');
-  t[0].lastElementChild.textContent=money(A.valor_mo);
-  t[1].lastElementChild.textContent=money(A.valor_peca);
-  s.querySelector('.tot-line.big b').textContent=money(num(A.valor_mo)+num(A.valor_peca));
+  s.querySelector('.tot-line').lastElementChild.textContent=money(A.valor);
+  s.querySelector('.tot-line.big b').textContent=money(A.valor);
 }
 function validarAut(){
   const e=[];
   if(!A.afiliado_id)e.push('Selecione a oficina afiliada');
   if(!A.unidade_id)e.push('Selecione a unidade de faturamento');
   if(!A.placa)e.push('Informe a placa do veículo');
-  if(!A.descricao)e.push('Informe a descrição do serviço');
+  if(!A.descricao)e.push('Selecione o agrupamento do serviço');
+  if(!num(A.valor))e.push('Informe o valor autorizado');
   return e;
 }
 function persistAut(silencioso){
+  /* valor único, gravado no campo correspondente ao tipo escolhido */
+  A.valor_mo=(A.tipo_valor==='Peça')?0:num(A.valor);
+  A.valor_peca=(A.tipo_valor==='Peça')?num(A.valor):0;
   const e=validarAut();
   if(e.length&&!silencioso){toast(e[0],'err');return false}
   A.updated_at=new Date().toISOString();
@@ -4907,105 +5103,113 @@ async function pdfRoteiro(d,a){
   rodapeAut(d,a,'Roteiro de atendimento · Rede de Afiliados Autoglass');
 }
 
-/* ── 2. Autorização de serviço ── */
+/* ── 2. Autorização de serviço ──
+   Reproduz o formulário da planilha: título centralizado, faixas azuis de
+   seção e tabela com rótulo à esquerda e valor à direita.                 */
 async function pdfAutorizacao(d,a){
-  const {txt,label,rule,caixa,campo}=ferramentasPDF(d);
+  const {txt,label}=ferramentasPDF(d);
   const of=afiliado(a.afiliado_id)||{},u=unidade(a.unidade_id)||{},emp=empresaDaUnidade(u)||{},
-    c=cliente(a.cliente_id)||{};
-  let y=cabecalhoAut(d,'Autorização de serviço','Autorização de serviço',a);
+    c=cliente(a.cliente_id)||{},cfg=DB.config;
+  const L=M, R=PW-M, Lg=CW;
+  let y=M;
 
-  /* emissão da nota fiscal */
-  label('Informações para emissão da nota fiscal de serviço',M,y);
-  y+=5;
-  const hCx=26;
-  caixa(M,y,CW,hCx);
-  const col=(CW-14)/3;
-  campo(M+6,y+6.4,col-6,'Unidade',u.codigo||'—');
-  campo(M+6+col,y+6.4,col-6,'CNPJ',emp.cnpj||u.cnpj||'—',{size:8.4});
-  campo(M+6+col*2,y+6.4,col-6,'Telefone',u.telefone||DB.config.redeTelefone||'—',{size:8.4});
-  campo(M+6,y+16.8,col*2-6,'Razão social',emp.razao_social||u.razao_social||'—',{size:8.4});
-  campo(M+6+col*2,y+16.8,col-6,'Nº do atendimento',a.n_atendimento||'—',{size:8.4});
-  y+=hCx+2.5;
-  txt([u.endereco,u.cidade&&u.cidade+(u.estado?' - '+u.estado:''),u.cep&&'CEP '+u.cep]
-    .filter(Boolean).join(', '),M+1,y+2,{size:7.6,color:INK2,max:CW-2});
-  y+=6.5;
+  /* marca e títulos */
+  const s=IMGCACHE[cfg.logo]||{w:340,h:154};
+  const r=Math.min(34/s.w,10/s.h);
+  try{d.addImage(cfg.logo,/^data:image\/(jpe?g)/i.test(cfg.logo)?'JPEG':'PNG',L,y,s.w*r,s.h*r)}catch(e){}
+  txt('AUTORIZAÇÃO DE PRESTAÇÃO DE SERVIÇO',PW/2,y+6.5,{size:13.5,style:'bold',align:'center'});
+  txt(a.numero+(a.n_atendimento?'   ·   Atendimento '+a.n_atendimento:''),PW/2,y+12,
+    {size:8,color:INK3,align:'center'});
+  y+=18;
 
-  /* afiliado */
-  label('Afiliado',M,y);y+=5;
-  const hAf=24;
-  caixa(M,y,CW,hAf,[247,249,253],LINE);
-  campo(M+6,y+6.4,col-6,'Código',of.codigo||'—');
-  campo(M+6+col,y+6.4,col*2-6,'Razão social',of.razao_social||'—',{size:9.5});
-  campo(M+6,y+16,col-6,'CNPJ',mkCNPJ(of.cnpj)||'—',{size:8.4});
-  campo(M+6+col,y+16,col-6,'Telefone',mkTel(of.telefone)||'—',{size:8.4});
-  campo(M+6+col*2,y+16,col-6,'Cidade',[of.cidade,of.uf].filter(Boolean).join(' - ')||'—',{size:8.4});
-  y+=hAf+4;
+  /* medidas da grade */
+  const h=7.2;                                  /* altura padrão da linha */
+  const c1=32, c2=Lg*0.40, c3=26;               /* rótulo | valor | rótulo direito */
+  const c4=Lg-c1-c2-c3;
 
-  /* serviço e valores */
-  label('Serviço autorizado',M,y);y+=5;
-  const larg=CW*0.62;
-  caixa(M,y,larg,18);
-  campo(M+6,y+6.4,larg-12,'Descrição',a.descricao||'—',{size:9.5});
-  if(c.razao_social)txt('Cliente: '+(c.nome_fantasia||c.razao_social),M+6,y+15.4,{size:7.4,color:INK3,max:larg-12});
-  const lv=CW-larg-5;
-  d.setFillColor(...AGB);d.roundedRect(M+larg+5,y,lv,18,2.2,2.2,'F');
-  d.setFont('helvetica','bold');d.setFontSize(6.6);d.setTextColor(255,255,255);
-  const temPeca=num(a.valor_peca)>0, temMO=num(a.valor_mo)>0;
-  d.text(temMO&&!temPeca?'MÃO DE OBRA':temPeca&&!temMO?'PEÇA':'TOTAL AUTORIZADO',M+larg+11,y+6.6,{charSpace:.5});
-  txt(money(num(a.valor_mo)+num(a.valor_peca)),PW-M-6,y+14,{size:13,style:'bold',color:[255,255,255],align:'right'});
-  if(temMO&&temPeca)txt('Mão de obra '+money(a.valor_mo)+'  ·  Peça '+money(a.valor_peca),
-    M+6,y+22.5,{size:7.4,color:INK3});
-  y+=18+(temMO&&temPeca?6:3);
+  const faixa=(titulo)=>{
+    d.setFillColor(...AGB);d.rect(L,y,Lg,h,'F');
+    d.setFont('helvetica','bold');d.setFontSize(9);d.setTextColor(255,255,255);
+    d.text(String(titulo).toUpperCase(),PW/2,y+5,{align:'center',charSpace:.3});
+    y+=h;
+  };
+  const celula=(x,larg,texto,{rot=false,size=8.6,alt=h,style}={})=>{
+    d.setDrawColor(...[31,56,100]);d.setLineWidth(.25);
+    if(rot){d.setFillColor(238,241,247);d.rect(x,y,larg,alt,'FD')}
+    else d.rect(x,y,larg,alt,'D');
+    d.setFont('helvetica',style||(rot?'bold':'normal'));d.setFontSize(size);
+    d.setTextColor(...(rot?INK:INK2));
+    const linhas=d.splitTextToSize(String(texto??''),larg-4);
+    linhas.slice(0,2).forEach((t,i)=>d.text(t,x+2,y+(alt/2)+1.1+(i-(linhas.length>1?.5:0))*3.2));
+  };
+  const linha2=(r1,v1,r2,v2)=>{
+    celula(L,c1,r1,{rot:true});celula(L+c1,c2,v1);
+    celula(L+c1+c2,c3,r2,{rot:true});celula(L+c1+c2+c3,c4,v2);
+    y+=h;
+  };
+  const linha1=(r1,v1)=>{
+    celula(L,c1,r1,{rot:true});celula(L+c1,Lg-c1,v1);
+    y+=h;
+  };
 
-  /* condutor e veículo */
-  label('Dados do condutor e do veículo',M,y);y+=5;
-  const hCd=24;
-  caixa(M,y,CW,hCd);
-  campo(M+6,y+6.4,col*2-6,'Nome',a.condutor_nome||'—',{size:9});
-  campo(M+6+col*2,y+6.4,col-6,'Placa',a.placa||'—',{size:11});
-  campo(M+6,y+16,col-6,'Contato',a.condutor_contato||'—',{size:8.4});
-  campo(M+6+col,y+16,col-6,'Modelo',a.modelo||'—',{size:8.4});
-  campo(M+6+col*2,y+16,col-6,'Chassi',a.chassi||'—',{size:8.4});
-  y+=hCd+4;
+  faixa('Informações para emissão de nota fiscal');
+  linha2('Data:',dBR(a.data),'Nº Atend.:',a.n_atendimento||'');
+  linha2('Unidade:',u.codigo||'','CNPJ:',emp.cnpj||u.cnpj||'');
+  linha2('Razão:',emp.razao_social||u.razao_social||'','Telefone:',cfg.redeTelefone||'');
+  linha1('Endereço:',[u.endereco,u.cidade&&u.cidade+(u.estado?' - '+u.estado:''),u.cep&&'CEP '+u.cep]
+    .filter(Boolean).join(', '));
 
-  /* avisos */
-  /* os dois avisos dividem a mesma tarja, para economizar altura */
-  const lChassi=d.splitTextToSize(DB.config.autAvisoChassi||'',CW-12);
-  const lFotos=d.splitTextToSize(DB.config.autAvisoFotos||'',CW-12);
-  const hAv=(lChassi.length+lFotos.length)*3.4+7;
-  caixa(M,y,CW,hAv,[253,251,244],[240,231,205]);
-  let ay=y+4.4;
-  lChassi.forEach(l=>{txt(l,M+6,ay,{size:7.2,color:INK2});ay+=3.4});
-  lFotos.forEach(l=>{txt(l,M+6,ay+.6,{size:7.2,style:'bold',color:AGB});ay+=3.4});
-  y+=hAv+4;
+  faixa('Afiliado');
+  linha1('Código:',of.codigo||'');
+  linha1('Razão:',of.razao_social||'');
+  linha2('CNPJ:',mkCNPJ(of.cnpj)||'','Telefone:',mkTel(of.telefone)||'');
+  linha1('Cidade:',[of.cidade,of.uf].filter(Boolean).join(' - '));
+  linha1('Descrição:',a.descricao||'');
+  /* o valor sai rotulado conforme o tipo autorizado */
+  const tipo=(a.tipo_valor||(num(a.valor_peca)>0?'Peça':'Mão de obra'));
+  const valor=num(a.valor)||num(a.valor_mo)+num(a.valor_peca);
+  celula(L,c1,tipo==='Peça'?'PEÇA:':'MÃO DE OBRA:',{rot:true,size:8.2});
+  celula(L+c1,Lg-c1,money(valor),{style:'bold',size:10});
+  y+=h;
+
+  faixa('Dados do condutor');
+  linha2('Nome:',a.condutor_nome||c.nome_fantasia||c.razao_social||'','Placa:',a.placa||'');
+  linha2('Contato:',a.condutor_contato||'','Chassi:',a.chassi||'');
+  linha2('Agend.:',a.agendamento?dBR(a.agendamento)+(a.hora_agend?' '+a.hora_agend:''):'','Modelo:',a.modelo||'');
+
+  /* avisos em caixa, como na planilha */
+  const avisoChassi=d.splitTextToSize(cfg.autAvisoChassi||'',Lg-6);
+  let hA=avisoChassi.length*3.6+4;
+  d.setDrawColor(31,56,100);d.setLineWidth(.25);d.rect(L,y,Lg,hA,'D');
+  avisoChassi.forEach((t,i)=>txt(t,PW/2,y+4.4+i*3.6,{size:7.6,color:INK2,align:'center'}));
+  y+=hA+2.5;
+  const avisoFotos=d.splitTextToSize(cfg.autAvisoFotos||'',Lg-6);
+  hA=avisoFotos.length*3.6+4;
+  d.setFillColor(253,251,244);d.rect(L,y,Lg,hA,'FD');
+  avisoFotos.forEach((t,i)=>txt(t,PW/2,y+4.4+i*3.6,{size:7.8,style:'bold',color:[146,96,0],align:'center'}));
+  y+=hA+4;
 
   if(a.obs&&a.obs.length){
-    const linhas=a.obs.map(t=>d.splitTextToSize('•  '+t,CW-14));
-    const h=linhas.flat().length*3.7+8;
-    caixa(M,y,CW,h,[247,249,253],LINE);
-    label('Observações',M+7,y+5.6);
-    let oy=y+10.4;
-    linhas.forEach(ls=>{ls.forEach((l,i)=>{txt(l,M+7+(i?3:0),oy,{size:7.6,color:INK2});oy+=3.7})});
-    y+=h+4;
+    label('Observações',L,y);y+=4;
+    a.obs.forEach(o=>{y+=txt('•  '+o,L,y,{size:7.6,color:INK2,max:Lg,lh:1.3})+.8});
+    y+=2;
   }
 
-  /* condições — só entram se couberem acima das assinaturas e do rodapé */
-  const cond=tplRede(DB.config.autCondicoes||'').split('\n').filter(Boolean);
-  const alturaCond=cond.reduce((h,l)=>h+d.splitTextToSize('•  '+l,CW).length*6.8*0.3528*1.28+.8,4.2);
-  const limite=PH-26-21;                       /* rodapé + assinaturas */
-  if(y+alturaCond>limite){
-    rodapeAut(d,a,'Autorização de serviço · continua na página seguinte.');
-    d.addPage();y=M+4;
-  }
-  label('Condições',M,y);y+=4.6;
-  cond.forEach(l=>{y+=txt('•  '+l,M,y,{size:6.8,color:INK3,max:CW,lh:1.28})+.8});
+  /* texto final, conforme o documento oficial */
+  txt('Para garantir agilidade e evitar transtornos no recebimento pelo serviço prestado, observar:',
+    L,y+2,{size:7.8,style:'bold',max:Lg});
+  y+=7;
+  tplRede(cfg.autCondicoes||'').split('\n').filter(Boolean).forEach(l=>{
+    y+=txt('*  '+l,L,y,{size:7.2,color:INK2,max:Lg,lh:1.3})+1;
+  });
 
   /* assinaturas */
-  y=Math.max(y+8,PH-51);
-  const la=(CW-12)/2;
-  rule(y+10,M,M+la,INK3,.4);rule(y+10,M+la+12,PW-M,INK3,.4);
-  txt('Assinatura do afiliado',M,y+14,{size:7.4,color:INK3});
-  txt('Assinatura do condutor e CPF',M+la+12,y+14,{size:7.4,color:INK3});
+  y=Math.max(y+8,PH-44);
+  const la=(Lg-12)/2;
+  d.setDrawColor(...INK3);d.setLineWidth(.4);
+  d.line(L,y+10,L+la,y+10);d.line(L+la+12,y+10,R,y+10);
+  txt('Assinatura do afiliado',L,y+14,{size:7.4,color:INK3});
+  txt('Assinatura do condutor e CPF',L+la+12,y+14,{size:7.4,color:INK3});
   rodapeAut(d,a,'Autorização de serviço · validade de '+(a.validade_dias||30)+' dias a partir da emissão.');
 }
 
@@ -5144,7 +5348,7 @@ Segue a *Autorização de Serviço ${a.numero}* para o veículo *${a.placa}*${a.
 
 Atendimento: ${a.n_atendimento||'—'}
 Serviço: ${a.descricao||'—'}
-Valor autorizado: *${money(num(a.valor_mo)+num(a.valor_peca))}*
+${a.tipo_valor||'Valor'}: *${money(num(a.valor)||num(a.valor_mo)+num(a.valor_peca))}*
 Unidade de faturamento: ${u.codigo||''} — ${u.razao_social||''}
 Validade: ${a.validade_dias||30} dias.
 
