@@ -97,7 +97,7 @@ body.mini .sb{width:var(--sb-min);flex-basis:var(--sb-min)}
 body.mini .sb-sec{opacity:0;height:14px;padding:8px 0 0;pointer-events:none}
 body.mini .sb-nav .sb-sec{border-top:1px solid var(--line-2);margin:6px 8px 0;height:1px;padding:0}
 
-#navMarca{position:absolute;left:10px;right:10px;height:0;border-radius:var(--r-sm);
+#navMarca{position:absolute;left:0;top:0;width:0;height:0;border-radius:var(--r-sm);
   background:linear-gradient(135deg,var(--ag) 0%,var(--ag-700) 100%);
   box-shadow:0 6px 16px rgba(22,65,148,.28);opacity:0;pointer-events:none;z-index:0;
   transition:transform .34s cubic-bezier(.34,1.3,.5,1),height .22s ease,opacity .22s ease}
@@ -111,6 +111,8 @@ body.mini .sb-nav .sb-sec{border-top:1px solid var(--line-2);margin:6px 8px 0;he
 .nav:hover{background:var(--ag-50);color:var(--ag);transform:translateX(3px)}
 .nav.on{color:#fff;background:none;transform:none}
 .nav.on:hover{background:none;transform:none}
+.nav:focus{outline:none}
+.nav:focus-visible{outline:2px solid var(--ag-600);outline-offset:-2px}
 [data-theme="dark"] .nav.on{color:#eef3ff}
 .nav svg{width:18px;height:18px;flex:0 0 18px;stroke-width:1.75;
   transition:transform .3s cubic-bezier(.34,1.4,.5,1)}
@@ -127,7 +129,13 @@ body.mini .nav[data-tip]:hover::after{content:attr(data-tip);position:absolute;l
 
 .sb-foot{padding:10px;border-top:1px solid var(--line-2)}
 .sb-user{display:flex;align-items:center;gap:10px;padding:8px;border-radius:var(--r-sm);
-  transition:background .18s}
+  transition:background .18s;width:100%;background:none;border:0;cursor:pointer;text-align:left;
+  font-family:inherit;color:inherit}
+.sb-user-ico{display:flex;color:var(--ink-4);transition:transform .3s cubic-bezier(.34,1.4,.5,1)}
+.sb-user-ico svg{width:15px;height:15px;stroke-width:1.9}
+.sb-user:hover .sb-user-ico{color:var(--ag);transform:rotate(60deg)}
+body.perfil-ativo .sb-user{background:var(--ag-50)}
+body.mini .sb-user-ico{display:none}
 .sb-user:hover{background:var(--surface-2)}
 .av{width:32px;height:32px;flex:0 0 32px;border-radius:50%;background:var(--ag);color:#fff;
   display:grid;place-items:center;font-weight:600;font-size:12px;
@@ -535,10 +543,11 @@ const SEED_TOTAL=8484;
   <aside class="sb"><div class="sb-painel">
     <nav class="sb-nav" id="nav"><span id="navMarca"></span></nav>
     <div class="sb-foot">
-      <div class="sb-user">
+      <button class="sb-user" id="sbPerfil" title="Meu perfil e configurações">
         <div class="av" id="uav">GA</div>
         <div><b id="uname">Gabriel Aguiar</b><small id="urole">Administrador</small></div>
-      </div>
+        <span class="sb-user-ico">${ico('cog')}</span>
+      </button>
     </div>
   </div></aside>
   <div class="main">
@@ -1229,9 +1238,7 @@ const MENU=[
  {k:'cli',t:'Clientes',i:'users'},
  {k:'uni',t:'Unidades',i:'bldg'},
  {k:'prod',t:'Produtos',i:'box'},
- {sec:'Sistema'},
- {k:'cfg',t:'Configurações',i:'cog'},
-];
+ ];
 function renderNav(){
   $('#nav').innerHTML='<span id="navMarca"></span>'+MENU.map(m=>m.sec?`<div class="sb-sec">${m.sec}</div>`
     :`<button class="nav" data-k="${m.k}" data-tip="${m.t}">${ico(m.i)}<span>${m.t}</span></button>`).join('');
@@ -1242,17 +1249,17 @@ function moverMarca(){
   const m=$('#navMarca'),ativo=$('#nav .nav.on');
   if(!m)return;
   if(!ativo){m.style.opacity=0;m.style.height=0;return}
-  const nav=$('#nav');
-  const topo=ativo.offsetTop-nav.scrollTop;
+  /* copia a caixa exata do item: evita o realce sobrar nas bordas */
+  m.style.width=ativo.offsetWidth+'px';
   m.style.height=ativo.offsetHeight+'px';
-  m.style.transform='translateY('+topo+'px)';
+  m.style.transform=`translate(${ativo.offsetLeft}px, ${ativo.offsetTop-$('#nav').scrollTop}px)`;
   m.style.opacity=1;
 }
 addEventListener('resize',()=>requestAnimationFrame(moverMarca));
 const TITLES={hub:['Início','Tudo o que você usa no dia a dia'],dash:['Dashboard','Visão gerencial da carteira'],novo:['Novo orçamento','Crie e gere o PDF em poucos passos'],
  orc:['Orçamentos','Gestão, filtros e ações em massa'],cli:['Clientes','Cadastro, logo e configurações comerciais'],
  uni:['Unidades Autoglass','Dados usados automaticamente no PDF'],prod:['Produtos','Base de peças e serviços'],
- cfg:['Configurações','Preferências gerais, PDF e e-mail'],
+ cfg:['Meu perfil','Preferências pessoais e configurações do sistema'],
  novaaut:['Nova autorização','Autorização, roteiro e check-list da oficina afiliada'],
  aut:['Autorizações de serviço','Documentos emitidos para a rede de afiliados'],
  ofi:['Oficinas afiliadas','Base de credenciados usada nas autorizações'],
@@ -1264,6 +1271,7 @@ function router(){
   ROUTE={k:k||'hub',arg:arg||null};
   if(!TITLES[ROUTE.k])ROUTE.k='hub';
   $$('#nav .nav').forEach(b=>b.classList.toggle('on',b.dataset.k===ROUTE.k));
+  document.body.classList.toggle('perfil-ativo',ROUTE.k==='cfg');
   requestAnimationFrame(moverMarca);
   const[t,s]=TITLES[ROUTE.k];$('#ttl').textContent=t;$('#sub').textContent=s;
   $('#topActions').innerHTML='';fecharSugestoes();window.scrollTo(0,0);
@@ -1322,9 +1330,16 @@ function agrupamentos(){
   return _agrup;
 }
 function modelosVeiculo(){
+  /* marca + modelo apenas: "VW POLO 23/ 5P DT" vira "VW POLO" */
   if(!_modelos){
     const s=new Set();
-    DB.produtos.forEach(p=>{const a=(p.aplicacao||'').trim();if(a.length>2)s.add(a)});
+    DB.produtos.forEach(p=>{
+      const partes=(p.aplicacao||'').trim().split(/\s+/).filter(Boolean);
+      if(partes.length<2)return;
+      const m=partes.slice(0,2).join(' ');
+      if(/\d/.test(partes[1]))return;          /* descarta "VW 23/" e afins */
+      if(m.length>2)s.add(m);
+    });
     _modelos=[...s].sort();
   }
   return _modelos;
@@ -1341,6 +1356,11 @@ function buscaModelos(q){
   };
   return lista.map(m=>[pontua(m),m]).filter(x=>x[0]>=0)
     .sort((a,b)=>b[0]-a[0]).slice(0,40).map(x=>x[1]);
+}
+/* administrador no banco da equipe; sem nuvem, quem usa o dispositivo manda */
+function ehAdministrador(){
+  if(typeof Cloud==='undefined'||!Cloud.pronto())return true;
+  return (DB.config.perfil||'')==='Administrador';
 }
 const grupos=()=>[...new Set(DB.clientes.map(c=>(c.grupo||'').trim()).filter(Boolean))].sort();
 const grupoDoOrc=o=>cliente(o.cliente_id)?.grupo||'';
@@ -3268,7 +3288,7 @@ const Cloud={
         n_atendimento:r.n_atendimento||'',unidade_id:r.unidade_id||'',afiliado_id:r.afiliado_id||'',
         cliente_id:r.cliente_id||'',analista_id:r.analista_id||'',
         condutor_nome:r.condutor_nome||'',condutor_contato:r.condutor_contato||'',condutor_cpf:r.condutor_cpf||'',
-        placa:r.placa||'',chassi:r.chassi||'',modelo:r.modelo||'',
+        placa:r.placa||'',chassi:r.chassi||'',modelo:r.modelo||'',equipe:r.equipe||'',
         agendamento:r.agendamento||'',hora_agend:r.hora_agend||'',descricao:r.descricao||'',
         valor_mo:Number(r.valor_mo)||0,valor_peca:Number(r.valor_peca)||0,
         tipo_valor:r.tipo_valor||((Number(r.valor_peca)||0)>0?'Peça':'Mão de obra'),
@@ -3769,17 +3789,84 @@ function telaPendente(cad){
 
 <script>
 /* ═══════════════════ CONFIGURAÇÕES ═══════════════════ */
-let cfgTab='geral';
+let cfgTab='perfil';
 function vCfg(){
   const c=DB.config;
-  const TABS=[['geral','Geral'],['pdf','PDF e instalação'],['mail','E-mail'],['integ','Integrações'],
-    ['team','Equipe'],['afi','Rede de afiliados'],['seg','Acessos'],['nuvem','Nuvem e equipe'],['dados','Dados e backup']];
+  /* só administrador vê o que afeta a empresa inteira; os demais ficam na personalização */
+  const admin=ehAdministrador();
+  const TABS=admin
+    ? [['perfil','Meu perfil'],['geral','Geral'],['pdf','PDF e instalação'],['mail','E-mail'],
+       ['integ','Integrações'],['team','Equipe'],['afi','Rede de afiliados'],['seg','Acessos'],
+       ['nuvem','Nuvem e equipe'],['dados','Dados e backup']]
+    : [['perfil','Meu perfil']];
+  if(!TABS.some(t=>t[0]===cfgTab))cfgTab='perfil';
   $('#view').innerHTML=`<div class="tabs">${TABS.map(([k,t])=>`<button class="tab ${cfgTab===k?'on':''}" data-t="${k}">${t}</button>`).join('')}</div><div id="cfgBody"></div>`;
   $$('[data-t]').forEach(b=>b.onclick=()=>{cfgTab=b.dataset.t;vCfg()});
   const body=$('#cfgBody');
   const F=(id,lb,val,ph='',hint='')=>`<label class="f"><span>${lb}</span><input class="inp" id="${id}" value="${esc(val??'')}" placeholder="${esc(ph)}">${hint?`<div class="hint">${hint}</div>`:''}</label>`;
   const T=(id,lb,val,hint='')=>`<label class="f"><span>${lb}</span><textarea class="inp" id="${id}" style="min-height:96px">${esc(val??'')}</textarea>${hint?`<div class="hint">${hint}</div>`:''}</label>`;
 
+  if(cfgTab==='perfil'){
+    body.innerHTML=`<div class="grid g2" style="align-items:start">
+      <div class="card"><div class="card-h"><div><h3>Meu perfil</h3>
+        <p>Como você aparece no sistema e nos documentos</p></div></div>
+        <div class="card-b">
+          <div class="row" style="gap:18px;align-items:flex-start">
+            <div style="text-align:center">
+              <div class="av" id="pfAv" style="width:84px;height:84px;flex:0 0 84px;font-size:26px;
+                cursor:pointer;overflow:hidden;background-size:cover;background-position:center;
+                ${c.avatar?`background-image:url('${c.avatar}');color:transparent`:''}">${initials(c.usuario)}</div>
+              <div class="row" style="gap:6px;margin-top:9px;justify-content:center">
+                <button class="btn sm" id="pfFoto">${ico('img')}Foto</button>
+                ${c.avatar?`<button class="btn sm" id="pfRm">${ico('x')}</button>`:''}</div>
+            </div>
+            <div class="grid" style="flex:1;gap:14px;min-width:200px">
+              ${F('pfNome','Nome exibido',c.usuario)}
+              <label class="f"><span>Perfil de acesso</span>
+                <input class="inp" value="${esc(c.perfil||'Analista')}" disabled>
+                <div class="hint">${Cloud.pronto()?'Definido por um administrador em Acessos.':'Sem banco da equipe, o acesso é local.'}</div></label>
+            </div>
+          </div>
+        </div></div>
+      <div class="card"><div class="card-h"><div><h3>Preferências</h3>
+        <p>Valem apenas neste dispositivo</p></div></div>
+        <div class="card-b grid" style="gap:14px">
+          <label class="f"><span>Tema da interface</span><select class="inp" id="pfTema">
+            ${[['claro','Claro'],['escuro','Escuro'],['auto','Acompanhar o sistema']].map(([v,t])=>
+              `<option value="${v}" ${(c.tema||'claro')===v?'selected':''}>${t}</option>`).join('')}</select></label>
+          <label class="f"><span>Cliente pré-selecionado</span><select class="inp" id="pfCli">
+            <option value="">— nenhum —</option>
+            ${DB.clientes.map(x=>`<option value="${x.id}" ${c.clientePadrao===x.id?'selected':''}>${esc(x.nome_fantasia||x.razao_social)}</option>`).join('')}
+            </select></label>
+          <label class="f"><span>Unidade pré-selecionada</span><select class="inp" id="pfUni">
+            <option value="">— nenhuma —</option>
+            ${DB.unidades.map(x=>`<option value="${x.id}" ${c.unidadePadrao===x.id?'selected':''}>${esc(x.codigo)} · ${esc(x.cidade)}</option>`).join('')}
+            </select></label>
+          <label class="f"><span>Equipe padrão</span><select class="inp" id="pfEq">
+            <option value="">— nenhuma —</option>
+            ${EQUIPES.map(e=>`<option ${c.equipePadrao===e?'selected':''}>${e}</option>`).join('')}</select></label>
+          <label class="chk ${c.escolherPasta!==false?'on':''}" id="pfLp"><input type="checkbox" id="pfPasta" ${c.escolherPasta!==false?'checked':''}>
+            <span><b>Escolher a pasta ao salvar</b><small>Abre a janela de pastas do sistema</small></span></label>
+          <button class="btn" id="pfOnb" style="align-self:flex-start">${ico('refresh')}Refazer configuração inicial</button>
+        </div></div></div>
+      <div class="row" style="margin-top:16px"><button class="btn pri" id="pfSave">${ico('save')}Salvar perfil</button>
+        ${Cloud.pronto()?`<button class="btn" id="pfSair">Sair da conta</button>`:''}</div>`;
+    const aplicarFoto=u=>{c.avatar=u;save('meta',true);shell();vCfg()};
+    $('#pfFoto').onclick=()=>pickImage(aplicarFoto,320);
+    $('#pfAv').onclick=()=>pickImage(aplicarFoto,320);
+    $('#pfRm')&&($('#pfRm').onclick=()=>aplicarFoto(''));
+    $('#pfPasta').onchange=e=>$('#pfLp').classList.toggle('on',e.target.checked);
+    $('#pfOnb').onclick=async()=>{await onboarding();vCfg()};
+    $('#pfSair')&&($('#pfSair').onclick=async()=>{
+      if(await confirmar('Sair da conta','Encerrar a sessão neste navegador?','Sair',false))Cloud.logout()});
+    $('#pfSave').onclick=()=>{
+      Object.assign(c,{usuario:$('#pfNome').value.trim()||c.usuario,tema:$('#pfTema').value,
+        clientePadrao:$('#pfCli').value,unidadePadrao:$('#pfUni').value,equipePadrao:$('#pfEq').value,
+        escolherPasta:$('#pfPasta').checked});
+      save('meta',true);applyTheme();shell();toast('Perfil atualizado');vCfg();
+    };
+    return;
+  }
   if(cfgTab==='geral')body.innerHTML=`<div class="grid g2" style="align-items:start">
     <div class="card"><div class="card-h"><div><h3>Identidade</h3><p>Marca usada no sistema e no cabeçalho do PDF</p></div></div>
       <div class="card-b grid" style="gap:14px">
@@ -4452,7 +4539,7 @@ function parseCSVAfiliados(texto,merge){
 }
 
 /* ───────────── LISTA DE AUTORIZAÇÕES ───────────── */
-let aF={q:'',st:[],uni:[],de:'',ate:''}, selAut=new Set();
+let aF={q:'',st:[],uni:[],eq:[],de:'',ate:''}, selAut=new Set();
 function vAut(){
   $('#topActions').innerHTML=`<button class="btn pri" onclick="go('novaaut')">${ico('plus')}Nova autorização</button>`;
   const inc=(arr,v)=>!arr.length||arr.includes(v);
@@ -4460,10 +4547,10 @@ function vAut(){
     const of=afiliado(a.afiliado_id);
     const hay=norm([a.numero,a.placa,a.n_atendimento,a.condutor_nome,a.modelo,
       of?.razao_social,of?.codigo,of?.cidade].join(' '));
-    return (!aF.q||hay.includes(norm(aF.q)))&&inc(aF.st,a.status)&&inc(aF.uni,a.unidade_id)
+    return (!aF.q||hay.includes(norm(aF.q)))&&inc(aF.st,a.status)&&inc(aF.uni,a.unidade_id)&&inc(aF.eq,a.equipe||'')
       &&(!aF.de||a.data>=aF.de)&&(!aF.ate||a.data<=aF.ate);
   }).sort((x,y)=>y.created_at.localeCompare(x.created_at));
-  const OPCA={st:()=>STATUS_AUT.map(s=>({v:s,t:s})),
+  const OPCA={st:()=>STATUS_AUT.map(s=>({v:s,t:s})),eq:()=>EQUIPES.map(e=>({v:e,t:e})),
     uni:()=>DB.unidades.map(u=>({v:u.id,t:u.codigo+' · '+u.cidade}))};
   $('#view').innerHTML=`
   <div class="card pad" style="margin-bottom:16px">
@@ -4473,6 +4560,7 @@ function vAut(){
         <input class="inp" id="aq" placeholder="Buscar por número, placa, atendimento, oficina ou condutor…" value="${esc(aF.q)}" style="padding-left:38px">
       </div>
       ${botaoFiltro('st','Status',aF.st,OPCA.st())}
+      ${botaoFiltro('eq','Equipe',aF.eq,OPCA.eq())}
       ${botaoFiltro('uni','Unidade',aF.uni,OPCA.uni())}
       <input type="date" class="inp" data-af="de" value="${aF.de}" style="width:150px" title="A partir de">
       <input type="date" class="inp" data-af="ate" value="${aF.ate}" style="width:150px" title="Até">
@@ -4491,7 +4579,7 @@ function vAut(){
         <td><span class="trunc" style="max-width:220px">${esc(of?.razao_social||'—')}</span>
           <div class="tiny muted">${esc([of?.codigo,of?.cidade,of?.uf].filter(Boolean).join(' · '))}</div></td>
         <td class="tiny"><b>${esc(a.placa||'—')}</b><div class="muted">${esc(a.modelo||'')}</div></td>
-        <td class="tiny">${esc(u?.codigo||'—')}<div class="muted">${esc(u?.cidade||'')}</div></td>
+        <td class="tiny">${esc(u?.codigo||'—')}<div class="muted">${esc(a.equipe||u?.cidade||'')}</div></td>
         <td class="tiny">${dBR(a.data)}<div class="muted">${a.agendamento?'ag. '+dBR(a.agendamento):''}</div></td>
         <td class="num">${money(num(a.valor)||num(a.valor_mo)+num(a.valor_peca))}
           <div class="tiny muted">${esc(a.tipo_valor||'')}</div></td>
@@ -4508,7 +4596,7 @@ function vAut(){
     const n=$('#aq');n.focus();n.selectionStart=n.selectionEnd=p},260);
   $$('[data-af]').forEach(el=>el.onchange=()=>{aF[el.dataset.af]=el.value;vAut()});
   $$('#view [data-multi]').forEach(b=>b.onclick=e=>{e.stopPropagation();const k=b.dataset.multi;
-    multiFiltro(b,k==='st'?'Status':'Unidade',OPCA[k](),aF[k],vals=>{aF[k]=vals;selAut.clear();vAut()})});
+    multiFiltro(b,{st:'Status',eq:'Equipe',uni:'Unidade'}[k],OPCA[k](),aF[k],vals=>{aF[k]=vals;selAut.clear();vAut()})});
   const ck=$('#ckAllA');
   if(ck){ck.checked=lista.length&&lista.every(a=>selAut.has(a.id));
     ck.onchange=()=>{lista.forEach(a=>ck.checked?selAut.add(a.id):selAut.delete(a.id));vAut()}}
@@ -4576,7 +4664,7 @@ function duplicarAut(a){
 
 
 /* ───────────── DASHBOARD DA REDE DE AFILIADOS ───────────── */
-let afF={de:'',ate:'',uf:[],ofi:[],st:[],uni:[]};
+let afF={de:'',ate:'',eq:[],uf:[],ofi:[],st:[],uni:[]};
 function vDashAf(){
   const v=$('#view');
   $('#topActions').innerHTML=`<button class="btn pri" onclick="go('novaaut')">${ico('plus')}Nova autorização</button>`;
@@ -4593,7 +4681,8 @@ function vDashAf(){
   const f=DB.autorizacoes.filter(a=>{
     const of=afiliado(a.afiliado_id)||{};
     return (!afF.de||a.data>=afF.de)&&(!afF.ate||a.data<=afF.ate)
-      &&inc(afF.uf,of.uf||'')&&inc(afF.ofi,a.afiliado_id)&&inc(afF.st,a.status)&&inc(afF.uni,a.unidade_id);
+      &&inc(afF.eq,a.equipe||'')&&inc(afF.uf,of.uf||'')&&inc(afF.ofi,a.afiliado_id)
+      &&inc(afF.st,a.status)&&inc(afF.uni,a.unidade_id);
   });
   const mes=new Date().toISOString().slice(0,7);
   const K={
@@ -4609,20 +4698,21 @@ function vDashAf(){
     ?K.fechadas/f.filter(a=>a.status!=='Rascunho').length*100:0;
   const ufs=[...new Set(DB.afiliados.map(a=>a.uf).filter(Boolean))].sort();
   const OPCF={
+    eq:()=>EQUIPES.map(e=>({v:e,t:e})),
     uf:()=>ufs.map(u=>({v:u,t:u})),
     ofi:()=>[...new Set(DB.autorizacoes.map(a=>a.afiliado_id))].filter(Boolean)
       .map(id=>({v:id,t:afiliado(id)?.razao_social||'—'})).sort((a,b)=>a.t.localeCompare(b.t)),
     st:()=>STATUS_AUT.map(s=>({v:s,t:s})),
     uni:()=>DB.unidades.map(u=>({v:u.id,t:u.codigo+' · '+u.cidade})),
   };
-  const ROTF={uf:'Estado',ofi:'Oficina',st:'Status',uni:'Unidade'};
+  const ROTF={eq:'Equipe',uf:'Estado',ofi:'Oficina',st:'Status',uni:'Unidade'};
 
   v.innerHTML=`
   <div class="card pad" style="margin-bottom:16px">
     <div class="fgrid">
       <label class="f" style="margin:0"><input type="date" class="inp" data-aff="de" value="${afF.de}" title="A partir de"></label>
       <label class="f" style="margin:0"><input type="date" class="inp" data-aff="ate" value="${afF.ate}" title="Até"></label>
-      ${['uf','ofi','st','uni'].map(k=>botaoFiltro(k,ROTF[k],afF[k],OPCF[k]())).join('')}
+      ${['eq','uf','ofi','st','uni'].map(k=>botaoFiltro(k,ROTF[k],afF[k],OPCF[k]())).join('')}
       <button class="btn" id="afClr">${ico('refresh')}Limpar</button>
     </div>
   </div>
@@ -4653,8 +4743,8 @@ function vDashAf(){
       <div class="card-b" id="afRank"></div></div>
   </div>
   <div class="grid g2">
-    <div class="card"><div class="card-h"><div style="flex:1"><h3>Distribuição por estado</h3>
-      <p>Onde a rede está sendo acionada</p></div></div>
+    <div class="card"><div class="card-h"><div style="flex:1"><h3>Estados e equipes</h3>
+      <p>Onde e por quem a rede está sendo acionada</p></div></div>
       <div class="card-b" id="afUF"></div></div>
     <div class="card"><div class="card-h"><div style="flex:1"><h3>Últimas autorizações</h3>
       <p>Movimentação recente</p></div>
@@ -4671,7 +4761,7 @@ function vDashAf(){
   $$('[data-aff]').forEach(el=>el.onchange=()=>{afF[el.dataset.aff]=el.value;vDashAf()});
   $$('#view [data-multi]').forEach(b=>b.onclick=e=>{e.stopPropagation();const k=b.dataset.multi;
     multiFiltro(b,ROTF[k],OPCF[k](),afF[k],vals=>{afF[k]=vals;vDashAf()})});
-  $('#afClr').onclick=()=>{afF={de:'',ate:'',uf:[],ofi:[],st:[],uni:[]};vDashAf()};
+  $('#afClr').onclick=()=>{afF={de:'',ate:'',eq:[],uf:[],ofi:[],st:[],uni:[]};vDashAf()};
   desenhaEvoAf($('#afEvo'),f,valorDe);
   desenhaRankAf($('#afRank'),f,valorDe);
   desenhaUF($('#afUF'),f,valorDe);
@@ -4706,12 +4796,19 @@ function desenhaRankAf(el,f,valorDe){
     <span class="vl">${o.n}</span></div>`).join('');
 }
 function desenhaUF(el,f,valorDe){
+  const eq={};f.forEach(a=>{const k=a.equipe||'Sem equipe';(eq[k]=eq[k]||{n:0,v:0});eq[k].n++;eq[k].v+=valorDe(a)});
+  const listaEq=Object.entries(eq).sort((a,b)=>b[1].n-a[1].n);
   const by={};f.forEach(a=>{const uf=afiliado(a.afiliado_id)?.uf||'—';
     (by[uf]=by[uf]||{n:0,v:0});by[uf].n++;by[uf].v+=valorDe(a)});
   const arr=Object.entries(by).sort((a,b)=>b[1].n-a[1].n);
   if(!arr.length){el.innerHTML='<div class="empty tiny">Sem dados por estado.</div>';return}
   const tot=arr.reduce((s,x)=>s+x[1].n,0),mx=arr[0][1].n;
-  el.innerHTML=`<div class="row" style="gap:7px;margin-bottom:14px;flex-wrap:wrap">
+  el.innerHTML=`${listaEq.length?`<div class="tiny muted" style="margin-bottom:7px">Por equipe</div>
+    <div class="row" style="gap:7px;margin-bottom:16px;flex-wrap:wrap">
+      ${listaEq.map(([k,d])=>`<span class="tag" style="padding:5px 10px" title="${money(d.v)}">${esc(k)} <b>${d.n}</b></span>`).join('')}
+    </div>`:''}
+    <div class="tiny muted" style="margin-bottom:7px">Por estado</div>
+    <div class="row" style="gap:7px;margin-bottom:14px;flex-wrap:wrap">
       ${arr.slice(0,12).map(([uf,d])=>`<span class="tag" title="${d.n} autorização(ões) · ${money(d.v)}"
         style="padding:5px 10px">${esc(uf)} <b>${d.n}</b></span>`).join('')}
     </div>
@@ -4733,6 +4830,7 @@ function novaAutorizacao(){
     descricao:'',tipo_valor:'Mão de obra',valor:0,valor_mo:0,valor_peca:0,obs:[],status:'Rascunho',
     validade_dias:DB.config.validadeAut||30,hist:[],created_at:new Date().toISOString(),novo:true};
 }
+const EQUIPES=['Localiza','Frotas 2','Frotas 3','Associações'];
 const OBS_AUT=['Veículo com película aplicada no vidro.',
   'Necessário recalibrar a câmera do sistema ADAS após a instalação.',
   'Peça entregue na oficina por nota fiscal de simples remessa.',
@@ -4792,6 +4890,12 @@ function renderAut(){
           <label class="f"><span>Nº do atendimento / OS</span>
             <input class="inp" id="aNat" value="${esc(A.n_atendimento)}" placeholder="Ex.: 53620559"></label>
         </div>
+        <div class="grid g2" style="gap:14px;margin-top:14px">
+          <label class="f"><span>Equipe</span><select class="inp" id="aEq">
+            <option value="">— selecione —</option>
+            ${EQUIPES.map(e=>`<option ${A.equipe===e?'selected':''}>${e}</option>`).join('')}
+          </select><div class="hint">Não sai no documento. Serve para filtrar o dashboard da rede.</div></label>
+        </div>
         ${u?`<div class="tiny muted" style="margin-top:10px;line-height:1.6">
           ${esc(u.razao_social)}${u.cnpj?' · CNPJ '+esc(u.cnpj):''}<br>
           ${esc([u.endereco,u.cidade,u.estado,u.cep].filter(Boolean).join(' — ')||'Endereço não cadastrado')}
@@ -4817,11 +4921,10 @@ function renderAut(){
           <label class="f"><span>Chassi</span><input class="inp" id="aCh" value="${esc(A.chassi)}"
             placeholder="17 caracteres" style="text-transform:uppercase"></label>
         </div>
-        <div class="grid" style="grid-template-columns:1.4fr 1fr 1fr;gap:14px;margin-top:14px">
+        <div class="grid g2" style="gap:14px;margin-top:14px">
           <label class="f"><span>Nome do responsável</span><input class="inp" id="aCon" value="${esc(A.condutor_nome)}"
             placeholder="Cliente responsável pelo veículo"></label>
           <label class="f"><span>Contato</span><input class="inp" id="aCont" value="${esc(A.condutor_contato)}"></label>
-          <label class="f"><span>CPF</span><input class="inp" id="aCpf" value="${esc(A.condutor_cpf)}" placeholder="000.000.000-00"></label>
         </div>
       </div></section>
 
@@ -4929,6 +5032,7 @@ function bindAut(){
         re()});
   $('#aAn').onchange=e=>A.analista_id=e.target.value;
   $('#aNat').oninput=e=>A.n_atendimento=e.target.value;
+  $('#aEq').onchange=e=>{A.equipe=e.target.value;DB.config.equipePadrao=e.target.value;save('meta')};
   /* veículo */
   const ip=$('#aPl');mask(ip,mkPlaca);ip.oninput=()=>A.placa=ip.value;
   const imo=$('#aMo');
@@ -4938,9 +5042,6 @@ function bindAut(){
   const ich=$('#aCh');ich.oninput=()=>{ich.value=norm(ich.value).replace(/[^A-Z0-9]/g,'').slice(0,17);A.chassi=ich.value};
   $('#aCon').oninput=e=>A.condutor_nome=e.target.value;
   $('#aCont').oninput=e=>A.condutor_contato=e.target.value;
-  const icp=$('#aCpf');mask(icp,v=>String(v||'').replace(/\D/g,'').slice(0,11)
-    .replace(/^(\d{3})(\d)/,'$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/,'$1.$2.$3').replace(/(\d{3})(\d{1,2})$/,'$1-$2'));
-  icp.oninput=()=>A.condutor_cpf=icp.value;
   /* serviço: agrupamento da peça e um valor, de peça ou de mão de obra */
   $('#aDesc').onchange=e=>{A.descricao=e.target.value};
   $('#aTipo').onchange=e=>{A.tipo_valor=e.target.value;re()};
@@ -5064,42 +5165,57 @@ function cabecalhoAut(d,titulo,subtitulo,a){
   return y;
 }
 function rodapeAut(d,a,texto){
+  /* documentos da rede não levam o bloco do analista: o contato é o da rede */
   const {txt,label,rule}=ferramentasPDF(d);
-  const cfg=DB.config,an=analista(a&&a.analista_id)||{};
-  const fy=PH-26;
+  const cfg=DB.config;
+  const fy=PH-16;
   rule(fy,M,PW-M);
-  label('Analista responsável',M,fy+6);
-  txt(an.nome||cfg.usuario||'—',M,fy+11.6,{size:9.5,style:'bold'});
-  txt([an.whatsapp?'WhatsApp '+an.whatsapp:'',an.email||cfg.mailRemetente||''].filter(Boolean).join('   ·   '),
-    M,fy+16,{size:7.6,color:INK2});
-  label('Rede de afiliados',PW-M-60,fy+6);
-  txt(cfg.redeTelefone||'',PW-M,fy+11.6,{size:8.4,style:'bold',align:'right'});
-  txt(cfg.redeEmail||'',PW-M,fy+16,{size:7.6,color:AGB,align:'right'});
-  txt(texto||'',M,PH-7,{size:6.6,color:INK3,max:CW-24});
-  txt(String(d.getCurrentPageInfo().pageNumber),PW-M,PH-7,{size:6.6,color:INK3,align:'right'});
+  txt(texto||'',M,fy+5.4,{size:6.8,color:INK3,max:CW-70});
+  txt('Rede de Afiliados   '+(cfg.redeTelefone||'')+'   ·   '+(cfg.redeEmail||''),
+    PW-M,fy+5.4,{size:6.8,color:INK3,align:'right'});
+  txt(String(d.getCurrentPageInfo().pageNumber),PW-M,fy+10,{size:6.6,color:INK3,align:'right'});
 }
 
 /* ── 1. Roteiro de atendimento (texto fixo) ── */
 async function pdfRoteiro(d,a){
-  const {txt,label,caixa}=ferramentasPDF(d);
+  /* uma página só: duas colunas, com as seções em sequência */
+  const {txt,label}=ferramentasPDF(d);
+  const cfg=DB.config;
   let y=cabecalhoAut(d,'Roteiro de atendimento',
-    'Instruções para conduzir o atendimento do veículo direcionado ao seu estabelecimento. Leia com atenção.',a?null:null);
-  caixa(M,y,CW,13,[238,242,251]);
-  txt('Documento informativo — mantenha disponível para a equipe da oficina.',M+6,y+8,{size:8.4,color:[18,53,111],style:'bold'});
-  y+=20;
-  const partes=tplRede(DB.config.roteiroTexto||ROTEIRO_PADRAO).split('\n');
+    'Instruções para conduzir o atendimento do veículo direcionado ao seu estabelecimento.',null);
+  d.setFillColor(238,242,251);d.roundedRect(M,y,CW,10,2.4,2.4,'F');
+  txt('Documento informativo — mantenha disponível para a equipe da oficina.',M+6,y+6.4,
+    {size:7.8,color:[18,53,111],style:'bold'});
+  y+=15;
+
+  const colL=M, larg=(CW-9)/2, colR=M+larg+9;
+  const topo=y, fundo=PH-20;
+  let col=0, cy=topo;
+  const pular=()=>{if(col===0){col=1;cy=topo;return true}return false};
+  const x=()=>col===0?colL:colR;
+
+  const partes=tplRede(cfg.roteiroTexto||ROTEIRO_PADRAO).split('\n');
   partes.forEach(p=>{
     const t=p.trim();
-    if(!t){y+=2.4;return}
-    if(y>PH-40){rodapeAut(d,a,'Roteiro de atendimento · Rede de Afiliados Autoglass');d.addPage();y=M+4}
+    if(!t){cy+=1.8;return}
     if(t.startsWith('##')){
-      y+=3;
-      label(t.replace(/^##\s*/,''),M,y,AGB);
-      y+=5.4;
+      const titulo=t.replace(/^##\s*/,'');
+      if(cy+9>fundo&&!pular())return;
+      cy+=2.2;
+      label(titulo,x(),cy,AGB);
+      cy+=4.6;
     } else {
-      y+=txt(t,M,y,{size:8.6,color:INK2,max:CW,lh:1.5})+2.6;
+      const linhas=d.splitTextToSize(t,larg);
+      const h=linhas.length*2.95;
+      if(cy+h>fundo&&!pular()){ }
+      if(cy+h>fundo)return;                 /* excedente é cortado em vez de criar página */
+      linhas.forEach((l,i)=>txt(l,x(),cy+i*2.95,{size:7.2,color:INK2}));
+      cy+=h+2;
     }
   });
+  /* divisor central discreto */
+  d.setDrawColor(226,231,240);d.setLineWidth(.25);
+  d.line(colL+larg+4.5,topo,colL+larg+4.5,Math.min(fundo,PH-20));
   rodapeAut(d,a,'Roteiro de atendimento · Rede de Afiliados Autoglass');
 }
 
@@ -5134,13 +5250,14 @@ async function pdfAutorizacao(d,a){
     y+=h;
   };
   const celula=(x,larg,texto,{rot=false,size=8.6,alt=h,style}={})=>{
-    d.setDrawColor(...[31,56,100]);d.setLineWidth(.25);
-    if(rot){d.setFillColor(238,241,247);d.rect(x,y,larg,alt,'FD')}
-    else d.rect(x,y,larg,alt,'D');
+    if(rot){d.setFillColor(241,244,250);d.rect(x,y,larg,alt,'F')}
+    d.setDrawColor(222,228,239);d.setLineWidth(.2);
+    d.line(x,y+alt,x+larg,y+alt);                      /* separador leve entre linhas */
+    if(x>L)d.line(x,y+1,x,y+alt-1);                    /* divisor interno discreto */
     d.setFont('helvetica',style||(rot?'bold':'normal'));d.setFontSize(size);
     d.setTextColor(...(rot?INK:INK2));
-    const linhas=d.splitTextToSize(String(texto??''),larg-4);
-    linhas.slice(0,2).forEach((t,i)=>d.text(t,x+2,y+(alt/2)+1.1+(i-(linhas.length>1?.5:0))*3.2));
+    const linhas=d.splitTextToSize(String(texto??''),larg-6);
+    linhas.slice(0,2).forEach((t,i)=>d.text(t,x+3,y+(alt/2)+1.1+(i-(linhas.length>1?.5:0))*3.2));
   };
   const linha2=(r1,v1,r2,v2)=>{
     celula(L,c1,r1,{rot:true});celula(L+c1,c2,v1);
@@ -5151,15 +5268,30 @@ async function pdfAutorizacao(d,a){
     celula(L,c1,r1,{rot:true});celula(L+c1,Lg-c1,v1);
     y+=h;
   };
-
-  faixa('Informações para emissão de nota fiscal');
+  /* abre uma seção: guarda o topo para desenhar a moldura arredondada ao fechar */
+  let secTopo=0;
+  const abrir=(titulo)=>{
+    secTopo=y;
+    d.setFillColor(...AGB);d.roundedRect(L,y,Lg,h+3,2.4,2.4,'F');
+    d.setFillColor(...AGB);d.rect(L,y+h,Lg,3,'F');
+    d.setFont('helvetica','bold');d.setFontSize(8.8);d.setTextColor(255,255,255);
+    d.text(String(titulo).toUpperCase(),PW/2,y+5.4,{align:'center',charSpace:.3});
+    y+=h+1.5;
+  };
+  const fechar=()=>{
+    d.setDrawColor(...AGB);d.setLineWidth(.4);
+    d.roundedRect(L,secTopo,Lg,y-secTopo,2.4,2.4,'D');
+    y+=4.5;
+  };
+  abrir('Informações para emissão de nota fiscal');
   linha2('Data:',dBR(a.data),'Nº Atend.:',a.n_atendimento||'');
   linha2('Unidade:',u.codigo||'','CNPJ:',emp.cnpj||u.cnpj||'');
   linha2('Razão:',emp.razao_social||u.razao_social||'','Telefone:',cfg.redeTelefone||'');
   linha1('Endereço:',[u.endereco,u.cidade&&u.cidade+(u.estado?' - '+u.estado:''),u.cep&&'CEP '+u.cep]
     .filter(Boolean).join(', '));
 
-  faixa('Afiliado');
+  fechar();
+  abrir('Afiliado');
   linha1('Código:',of.codigo||'');
   linha1('Razão:',of.razao_social||'');
   linha2('CNPJ:',mkCNPJ(of.cnpj)||'','Telefone:',mkTel(of.telefone)||'');
@@ -5172,27 +5304,37 @@ async function pdfAutorizacao(d,a){
   celula(L+c1,Lg-c1,money(valor),{style:'bold',size:10});
   y+=h;
 
-  faixa('Dados do condutor');
+  fechar();
+  abrir('Dados do condutor');
   linha2('Nome:',a.condutor_nome||c.nome_fantasia||c.razao_social||'','Placa:',a.placa||'');
   linha2('Contato:',a.condutor_contato||'','Chassi:',a.chassi||'');
   linha2('Agend.:',a.agendamento?dBR(a.agendamento)+(a.hora_agend?' '+a.hora_agend:''):'','Modelo:',a.modelo||'');
 
-  /* avisos em caixa, como na planilha */
-  const avisoChassi=d.splitTextToSize(cfg.autAvisoChassi||'',Lg-6);
-  let hA=avisoChassi.length*3.6+4;
-  d.setDrawColor(31,56,100);d.setLineWidth(.25);d.rect(L,y,Lg,hA,'D');
-  avisoChassi.forEach((t,i)=>txt(t,PW/2,y+4.4+i*3.6,{size:7.6,color:INK2,align:'center'}));
-  y+=hA+2.5;
-  const avisoFotos=d.splitTextToSize(cfg.autAvisoFotos||'',Lg-6);
-  hA=avisoFotos.length*3.6+4;
-  d.setFillColor(253,251,244);d.rect(L,y,Lg,hA,'FD');
-  avisoFotos.forEach((t,i)=>txt(t,PW/2,y+4.4+i*3.6,{size:7.8,style:'bold',color:[146,96,0],align:'center'}));
-  y+=hA+4;
+  fechar();
+
+  /* avisos em caixas arredondadas */
+  const avisoChassi=d.splitTextToSize(cfg.autAvisoChassi||'',Lg-14);
+  let hA=avisoChassi.length*3.6+6;
+  d.setFillColor(247,249,253);d.setDrawColor(222,228,239);d.setLineWidth(.3);
+  d.roundedRect(L,y,Lg,hA,2.4,2.4,'FD');
+  avisoChassi.forEach((t,i)=>txt(t,PW/2,y+5.2+i*3.6,{size:7.6,color:INK2,align:'center'}));
+  y+=hA+3;
+  const avisoFotos=d.splitTextToSize(cfg.autAvisoFotos||'',Lg-14);
+  hA=avisoFotos.length*3.6+6;
+  d.setFillColor(253,250,241);d.setDrawColor(240,231,205);
+  d.roundedRect(L,y,Lg,hA,2.4,2.4,'FD');
+  avisoFotos.forEach((t,i)=>txt(t,PW/2,y+5.2+i*3.6,{size:7.8,style:'bold',color:[146,96,0],align:'center'}));
+  y+=hA+5;
 
   if(a.obs&&a.obs.length){
-    label('Observações',L,y);y+=4;
-    a.obs.forEach(o=>{y+=txt('•  '+o,L,y,{size:7.6,color:INK2,max:Lg,lh:1.3})+.8});
-    y+=2;
+    const ls=a.obs.map(o=>d.splitTextToSize('•  '+o,Lg-14));
+    const hO=ls.flat().length*3.7+9;
+    d.setFillColor(247,249,253);d.setDrawColor(222,228,239);d.setLineWidth(.3);
+    d.roundedRect(L,y,Lg,hO,2.4,2.4,'FD');
+    label('Observações',L+7,y+5.6);
+    let oy=y+10.4;
+    ls.forEach(g=>g.forEach((t,i)=>{txt(t,L+7+(i?3:0),oy,{size:7.6,color:INK2});oy+=3.7}));
+    y+=hO+5;
   }
 
   /* texto final, conforme o documento oficial */
@@ -5204,7 +5346,7 @@ async function pdfAutorizacao(d,a){
   });
 
   /* assinaturas */
-  y=Math.max(y+8,PH-44);
+  y=Math.max(y+8,PH-36);
   const la=(Lg-12)/2;
   d.setDrawColor(...INK3);d.setLineWidth(.4);
   d.line(L,y+10,L+la,y+10);d.line(L+la+12,y+10,R,y+10);
@@ -5426,7 +5568,10 @@ function shell(){
   $('#sbLogo').src=DB.config.logo||LOGO_AG;
   $('#uname').textContent=DB.config.usuario||'Definir usuário';
   $('#urole').textContent=DB.config.perfil;
-  $('#uav').textContent=DB.config.usuario?initials(DB.config.usuario):'AG';
+  const av=$('#uav');
+  if(DB.config.avatar){av.style.backgroundImage=`url('${DB.config.avatar}')`;av.style.backgroundSize='cover';
+    av.style.backgroundPosition='center';av.textContent=''}
+  else{av.style.backgroundImage='';av.textContent=DB.config.usuario?initials(DB.config.usuario):'AG'}
   $('#homeBtn').innerHTML=ico('home');
   const sd=$('#syncDot');
   if(Cloud.configurado()){
@@ -5457,6 +5602,7 @@ function avisoArmazenamento(){
     :'Você ainda não exportou nenhum backup dos orçamentos'),1400);
 }
 $('#sbHome').onclick=()=>go('hub');
+$('#sbPerfil').onclick=()=>{go('cfg');document.body.classList.remove('drawer-open')};
 $('#homeBtn').onclick=()=>go('hub');
 $('#syncDot').onclick=()=>{
   if(!Cloud.pronto())return toast('Sem sessão ativa no banco','err');
