@@ -546,7 +546,7 @@ const SEED_TOTAL=8484;
       <button class="sb-user" id="sbPerfil" title="Meu perfil e configurações">
         <div class="av" id="uav">GA</div>
         <div><b id="uname">Gabriel Aguiar</b><small id="urole">Administrador</small></div>
-        <span class="sb-user-ico">${ico('cog')}</span>
+        <span class="sb-user-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-2.89 1.17V21a2 2 0 11-4 0v-.09A1.65 1.65 0 007 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 002.6 14H2a2 2 0 110-4h.09A1.65 1.65 0 004.6 7a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 0010 2.6V2a2 2 0 114 0v.09a1.65 1.65 0 002.83 1.17l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0021.4 10H22a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
       </button>
     </div>
   </div></aside>
@@ -1233,8 +1233,8 @@ const MENU=[
  {k:'dashaf',t:'Dashboard',i:'chart'},
  {k:'novaaut',t:'Nova autorização',i:'shield'},
  {k:'aut',t:'Autorizações',i:'layers'},
- {k:'ofi',t:'Oficinas afiliadas',i:'bank'},
  {sec:'Cadastros'},
+ {k:'ofi',t:'Oficinas afiliadas',i:'bank'},
  {k:'cli',t:'Clientes',i:'users'},
  {k:'uni',t:'Unidades',i:'bldg'},
  {k:'prod',t:'Produtos',i:'box'},
@@ -5239,8 +5239,8 @@ async function pdfAutorizacao(d,a){
   y+=18;
 
   /* medidas da grade */
-  const h=7.2;                                  /* altura padrão da linha */
-  const c1=32, c2=Lg*0.40, c3=26;               /* rótulo | valor | rótulo direito */
+  const h=7.6;                                  /* altura mínima da linha */
+  const c1=33, c2=Lg*0.385, c3=27;              /* rótulo | valor | rótulo direito */
   const c4=Lg-c1-c2-c3;
 
   const faixa=(titulo)=>{
@@ -5249,24 +5249,34 @@ async function pdfAutorizacao(d,a){
     d.text(String(titulo).toUpperCase(),PW/2,y+5,{align:'center',charSpace:.3});
     y+=h;
   };
-  const celula=(x,larg,texto,{rot=false,size=8.6,alt=h,style}={})=>{
-    if(rot){d.setFillColor(241,244,250);d.rect(x,y,larg,alt,'F')}
-    d.setDrawColor(222,228,239);d.setLineWidth(.2);
-    d.line(x,y+alt,x+larg,y+alt);                      /* separador leve entre linhas */
-    if(x>L)d.line(x,y+1,x,y+alt-1);                    /* divisor interno discreto */
-    d.setFont('helvetica',style||(rot?'bold':'normal'));d.setFontSize(size);
+  const LH=3.3;                                   /* entrelinha dentro da célula */
+  const nLinhas=(texto,larg)=>Math.max(1,d.splitTextToSize(String(texto??''),larg-6).length);
+  const celula=(x,larg,texto,alt,{rot=false,size=8.4,style}={})=>{
+    if(rot){d.setFillColor(238,242,249);d.rect(x,y,larg,alt,'F')}
+    d.setDrawColor(224,230,240);d.setLineWidth(.2);
+    d.line(x,y+alt,x+larg,y+alt);                 /* separador da linha */
+    if(x>L)d.line(x,y,x,y+alt);                   /* divisor entre colunas */
+    d.setFont('helvetica',style||(rot?'bold':'normal'));
+    d.setFontSize(size);
     d.setTextColor(...(rot?INK:INK2));
     const linhas=d.splitTextToSize(String(texto??''),larg-6);
-    linhas.slice(0,2).forEach((t,i)=>d.text(t,x+3,y+(alt/2)+1.1+(i-(linhas.length>1?.5:0))*3.2));
+    const bloco=linhas.length*LH;
+    linhas.forEach((t,i)=>d.text(t,x+3,y+(alt-bloco)/2+LH*0.78+i*LH));
   };
-  const linha2=(r1,v1,r2,v2)=>{
-    celula(L,c1,r1,{rot:true});celula(L+c1,c2,v1);
-    celula(L+c1+c2,c3,r2,{rot:true});celula(L+c1+c2+c3,c4,v2);
-    y+=h;
+  /* a altura da linha acompanha o maior conteúdo, para nada vazar na linha seguinte */
+  const linha2=(r1,v1,r2,v2,op={})=>{
+    const alt=Math.max(h,Math.max(nLinhas(v1,c2),nLinhas(v2,c4))*LH+3.6);
+    celula(L,c1,r1,alt,{rot:true});
+    celula(L+c1,c2,v1,alt,op);
+    celula(L+c1+c2,c3,r2,alt,{rot:true});
+    celula(L+c1+c2+c3,c4,v2,alt,op);
+    y+=alt;
   };
-  const linha1=(r1,v1)=>{
-    celula(L,c1,r1,{rot:true});celula(L+c1,Lg-c1,v1);
-    y+=h;
+  const linha1=(r1,v1,op={})=>{
+    const alt=Math.max(h,nLinhas(v1,Lg-c1)*LH+3.6);
+    celula(L,c1,r1,alt,{rot:true});
+    celula(L+c1,Lg-c1,v1,alt,op);
+    y+=alt;
   };
   /* abre uma seção: guarda o topo para desenhar a moldura arredondada ao fechar */
   let secTopo=0;
@@ -5300,9 +5310,7 @@ async function pdfAutorizacao(d,a){
   /* o valor sai rotulado conforme o tipo autorizado */
   const tipo=(a.tipo_valor||(num(a.valor_peca)>0?'Peça':'Mão de obra'));
   const valor=num(a.valor)||num(a.valor_mo)+num(a.valor_peca);
-  celula(L,c1,tipo==='Peça'?'PEÇA:':'MÃO DE OBRA:',{rot:true,size:8.2});
-  celula(L+c1,Lg-c1,money(valor),{style:'bold',size:10});
-  y+=h;
+  linha1(tipo==='Peça'?'Peça:':'Mão de obra:',money(valor),{style:'bold',size:10.5});
 
   fechar();
   abrir('Dados do condutor');
