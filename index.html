@@ -5250,11 +5250,18 @@ async function pdfAutorizacao(d,a){
     y+=h;
   };
   const LH=3.3;                                   /* entrelinha dentro da célula */
+  const RAD=2.4;                                  /* raio dos cantos da seção */
   const nLinhas=(texto,larg)=>Math.max(1,d.splitTextToSize(String(texto??''),larg-6).length);
-  const celula=(x,larg,texto,alt,{rot=false,size=8.4,style}={})=>{
-    if(rot){d.setFillColor(238,242,249);d.rect(x,y,larg,alt,'F')}
-    d.setDrawColor(224,230,240);d.setLineWidth(.2);
-    d.line(x,y+alt,x+larg,y+alt);                 /* separador horizontal da linha */
+
+  /* As linhas são montadas em memória e desenhadas quando a seção fecha: só assim
+     dá para saber qual é a última e arredondar o fundo do rótulo junto da moldura,
+     em vez de deixar o retângulo cinza escapar pelo canto. */
+  let sec=null;
+  const abrir=titulo=>{sec={titulo,linhas:[]}};
+  const linha2=(r1,v1,r2,v2,op={})=>sec.linhas.push({n:2,r1,v1,r2,v2,op});
+  const linha1=(r1,v1,op={})=>sec.linhas.push({n:1,r1,v1,op});
+
+  const texto2=(x,larg,texto,alt,{size=8.4,style,rot}={})=>{
     d.setFont('helvetica',style||(rot?'bold':'normal'));
     d.setFontSize(size);
     d.setTextColor(...(rot?INK:INK2));
@@ -5262,36 +5269,55 @@ async function pdfAutorizacao(d,a){
     const bloco=linhas.length*LH;
     linhas.forEach((t,i)=>d.text(t,x+3,y+(alt-bloco)/2+LH*0.78+i*LH));
   };
-  /* a altura da linha acompanha o maior conteúdo, para nada vazar na linha seguinte */
-  const linha2=(r1,v1,r2,v2,op={})=>{
-    const alt=Math.max(h,Math.max(nLinhas(v1,c2),nLinhas(v2,c4))*LH+3.6);
-    celula(L,c1,r1,alt,{rot:true});
-    celula(L+c1,c2,v1,alt,op);
-    celula(L+c1+c2,c3,r2,alt,{rot:true});
-    celula(L+c1+c2+c3,c4,v2,alt,op);
-    y+=alt;
+  /* fundo do rótulo: na última linha o canto inferior esquerdo acompanha a moldura */
+  const fundoRotulo=(x,larg,alt,ultima)=>{
+    d.setFillColor(243,246,251);
+    if(ultima&&x===L){
+      d.roundedRect(x,y,larg,alt,RAD,RAD,'F');
+      d.rect(x+RAD,y,larg-RAD,alt,'F');          /* devolve o lado direito reto */
+      d.rect(x,y,larg,alt-RAD,'F');              /* devolve o canto superior reto */
+    } else d.rect(x,y,larg,alt,'F');
   };
-  const linha1=(r1,v1,op={})=>{
-    const alt=Math.max(h,nLinhas(v1,Lg-c1)*LH+3.6);
-    celula(L,c1,r1,alt,{rot:true});
-    celula(L+c1,Lg-c1,v1,alt,op);
-    y+=alt;
-  };
-  /* abre uma seção: guarda o topo para desenhar a moldura arredondada ao fechar */
-  let secTopo=0;
-  const abrir=(titulo)=>{
-    secTopo=y;
-    d.setFillColor(...AGB);d.roundedRect(L,y,Lg,h+3,2.4,2.4,'F');
-    d.setFillColor(...AGB);d.rect(L,y+h,Lg,3,'F');
-    d.setFont('helvetica','bold');d.setFontSize(8.8);d.setTextColor(255,255,255);
-    d.text(String(titulo).toUpperCase(),PW/2,y+5.4,{align:'center',charSpace:.3});
-    y+=h+1.5;
-  };
+
   const fechar=()=>{
+    const topo=y;
+    /* cabeçalho da seção */
+    d.setFillColor(...AGB);
+    d.roundedRect(L,y,Lg,h+3,RAD,RAD,'F');
+    d.rect(L,y+h,Lg,3,'F');
+    d.setFont('helvetica','bold');d.setFontSize(8.8);d.setTextColor(255,255,255);
+    d.text(String(sec.titulo).toUpperCase(),PW/2,y+5.4,{align:'center',charSpace:.3});
+    y+=h+3;
+
+    sec.linhas.forEach((ln,i)=>{
+      const ultima=i===sec.linhas.length-1;
+      const alt=ln.n===2
+        ? Math.max(h,Math.max(nLinhas(ln.v1,c2),nLinhas(ln.v2,c4))*LH+3.6)
+        : Math.max(h,nLinhas(ln.v1,Lg-c1)*LH+3.6);
+      if(ln.n===2){
+        fundoRotulo(L,c1,alt,ultima);fundoRotulo(L+c1+c2,c3,alt,false);
+        texto2(L,c1,ln.r1,alt,{rot:true});
+        texto2(L+c1,c2,ln.v1,alt,ln.op);
+        texto2(L+c1+c2,c3,ln.r2,alt,{rot:true});
+        texto2(L+c1+c2+c3,c4,ln.v2,alt,ln.op);
+      } else {
+        fundoRotulo(L,c1,alt,ultima);
+        texto2(L,c1,ln.r1,alt,{rot:true});
+        texto2(L+c1,Lg-c1,ln.v1,alt,ln.op);
+      }
+      if(!ultima){                                /* a moldura já fecha a última */
+        d.setDrawColor(224,230,240);d.setLineWidth(.2);
+        d.line(L,y+alt,L+Lg,y+alt);
+      }
+      y+=alt;
+    });
+
     d.setDrawColor(...AGB);d.setLineWidth(.4);
-    d.roundedRect(L,secTopo,Lg,y-secTopo,2.4,2.4,'D');
+    d.roundedRect(L,topo,Lg,y-topo,RAD,RAD,'D');
     y+=4.5;
+    sec=null;
   };
+
   abrir('Informações para emissão de nota fiscal');
   linha2('Data:',dBR(a.data),'Nº Atend.:',a.n_atendimento||'');
   linha2('Unidade:',u.codigo||'','CNPJ:',emp.cnpj||u.cnpj||'');
