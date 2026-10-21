@@ -5261,22 +5261,22 @@ async function pdfAutorizacao(d,a){
   const linha2=(r1,v1,r2,v2,op={})=>sec.linhas.push({n:2,r1,v1,r2,v2,op});
   const linha1=(r1,v1,op={})=>sec.linhas.push({n:1,r1,v1,op});
 
+  const INSET_T=1.4;
   const texto2=(x,larg,texto,alt,{size=8.4,style,rot}={})=>{
     d.setFont('helvetica',style||(rot?'bold':'normal'));
     d.setFontSize(size);
     d.setTextColor(...(rot?INK:INK2));
     const linhas=d.splitTextToSize(String(texto??''),larg-6);
     const bloco=linhas.length*LH;
-    linhas.forEach((t,i)=>d.text(t,x+3,y+(alt-bloco)/2+LH*0.78+i*LH));
+    const px=rot?x+INSET_T+3.4:x+3.4;
+    linhas.forEach((t,i)=>d.text(t,px,y+(alt-bloco)/2+LH*0.78+i*LH));
   };
-  /* fundo do rótulo: na última linha o canto inferior esquerdo acompanha a moldura */
-  const fundoRotulo=(x,larg,alt,ultima)=>{
-    d.setFillColor(243,246,251);
-    if(ultima&&x===L){
-      d.roundedRect(x,y,larg,alt,RAD,RAD,'F');
-      d.rect(x+RAD,y,larg-RAD,alt,'F');          /* devolve o lado direito reto */
-      d.rect(x,y,larg,alt-RAD,'F');              /* devolve o canto superior reto */
-    } else d.rect(x,y,larg,alt,'F');
+  /* O rótulo ganha um fundo arredondado recuado da moldura: nunca encosta na
+     borda da seção, então não há canto quadrado escapando pela curva.        */
+  const INSET=INSET_T;
+  const fundoRotulo=(x,larg,alt)=>{
+    d.setFillColor(242,245,251);
+    d.roundedRect(x+INSET,y+1,larg-INSET,alt-2,2,2,'F');
   };
 
   const fechar=()=>{
@@ -5306,8 +5306,8 @@ async function pdfAutorizacao(d,a){
         texto2(L+c1,Lg-c1,ln.v1,alt,ln.op);
       }
       if(!ultima){                                /* a moldura já fecha a última */
-        d.setDrawColor(224,230,240);d.setLineWidth(.2);
-        d.line(L,y+alt,L+Lg,y+alt);
+        d.setDrawColor(226,232,241);d.setLineWidth(.2);
+        d.line(L+c1+INSET,y+alt,L+Lg-INSET,y+alt);
       }
       y+=alt;
     });
