@@ -5240,8 +5240,8 @@ async function pdfAutorizacao(d,a){
 
   /* medidas da grade */
   const h=7.6;                                  /* altura mínima da linha */
-  const c1=33, c2=Lg*0.385, c3=27;              /* rótulo | valor | rótulo direito */
-  const c4=Lg-c1-c2-c3;
+  const meia=Lg/2;
+  const c1=34, c2=meia-34, c3=34, c4=meia-34;   /* duas metades idênticas: rótulo + valor */
 
   const faixa=(titulo)=>{
     d.setFillColor(...AGB);d.rect(L,y,Lg,h,'F');
@@ -5254,8 +5254,7 @@ async function pdfAutorizacao(d,a){
   const celula=(x,larg,texto,alt,{rot=false,size=8.4,style}={})=>{
     if(rot){d.setFillColor(238,242,249);d.rect(x,y,larg,alt,'F')}
     d.setDrawColor(224,230,240);d.setLineWidth(.2);
-    d.line(x,y+alt,x+larg,y+alt);                 /* separador da linha */
-    if(x>L)d.line(x,y,x,y+alt);                   /* divisor entre colunas */
+    d.line(x,y+alt,x+larg,y+alt);                 /* separador horizontal da linha */
     d.setFont('helvetica',style||(rot?'bold':'normal'));
     d.setFontSize(size);
     d.setTextColor(...(rot?INK:INK2));
