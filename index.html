@@ -3220,21 +3220,39 @@ const Cloud={
   async logout(){try{await this.sb.auth.signOut()}catch(e){}this.user=null;this.parar();location.reload()},
 
   /* ── carga inicial: o servidor é a fonte da verdade ── */
+  /* O Supabase devolve no máximo 1.000 linhas por consulta. Tabelas grandes —
+     peças, afiliados, itens — precisam ser lidas em páginas, senão chegam cortadas. */
+  async lerTabela(tabela,ordem){
+    const PAG=1000;
+    let de=0,tudo=[];
+    for(let volta=0;volta<400;volta++){
+      let q=this.sb.from(tabela).select('*').range(de,de+PAG-1);
+      if(ordem)q=q.order(ordem[0],{ascending:ordem[1]!==false});
+      const {data,error}=await q;
+      if(error)return {data:null,error};
+      if(!data||!data.length)break;
+      tudo=tudo.concat(data);
+      de+=data.length;                      /* avança pelo que veio, não pelo pedido */
+      /* alguns projetos limitam a menos de mil linhas por consulta: só encerra
+         quando a página volta vazia, nunca por ter vindo menor que o pedido */
+    }
+    return {data:tudo,error:null};
+  },
   async pull(){
     const sb=this.sb;
     const [cfg,ana,cli,uni,emp,orc,ite,his,prod,afi,auts,hisa]=await Promise.all([
       sb.from('configuracoes').select('dados').eq('id',1).maybeSingle(),
-      sb.from('analistas').select('*'),
-      sb.from('clientes').select('*'),
-      sb.from('unidades').select('*'),
-      sb.from('empresas').select('*'),
-      sb.from('orcamentos').select('*').order('created_at',{ascending:false}),
-      sb.from('orcamento_itens').select('*').order('ordem'),
-      sb.from('historico').select('*').order('data',{ascending:false}),
-      sb.from('produtos').select('*'),
-      sb.from('afiliados').select('*'),
-      sb.from('autorizacoes').select('*').order('created_at',{ascending:false}),
-      sb.from('autorizacao_historico').select('*').order('data',{ascending:false}),
+      this.lerTabela('analistas'),
+      this.lerTabela('clientes'),
+      this.lerTabela('unidades'),
+      this.lerTabela('empresas'),
+      this.lerTabela('orcamentos',['created_at',false]),
+      this.lerTabela('orcamento_itens',['ordem']),
+      this.lerTabela('historico',['data',false]),
+      this.lerTabela('produtos'),
+      this.lerTabela('afiliados'),
+      this.lerTabela('autorizacoes',['created_at',false]),
+      this.lerTabela('autorizacao_historico',['data',false]),
     ]);
     const err=[cfg,ana,cli,uni,emp,orc,ite,his,prod].find(r=>r.error);
     const semRede=[afi,auts,hisa].find(r=>r.error);
